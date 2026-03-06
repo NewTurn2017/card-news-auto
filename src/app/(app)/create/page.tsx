@@ -147,6 +147,10 @@ export default function CreatePage() {
       } else {
         setError(msg)
       }
+      // Reset project status so UI doesn't stay stuck on "collecting"
+      if (projectId) {
+        await updateProject({ projectId, status: 'draft' }).catch(() => {})
+      }
       console.error('Collection error:', err)
     } finally {
       setIsCollecting(false)
