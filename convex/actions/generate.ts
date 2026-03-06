@@ -5,6 +5,14 @@ import { GoogleGenAI } from "@google/genai";
 import { internal } from "../_generated/api";
 import { decrypt } from "../lib/crypto";
 
+function isApiKeyInvalidError(err: unknown): boolean {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = String((err as { message: string }).message);
+    return msg.includes("API_KEY_INVALID") || msg.includes("API key not valid");
+  }
+  return false;
+}
+
 async function getDecryptedApiKey(ctx: { runQuery: Function }) {
   const profile = await ctx.runQuery(internal.userProfiles.getProfileByAuth);
   if (profile?.geminiApiKey) {
@@ -93,14 +101,22 @@ export const generateCardNews = action({
     });
 
     // Phase 1: 콘텐츠 구조화 (Structured Output)
-    const planResult = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: getPlanningPrompt(project.sourceContent, slideCount),
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: PLANNING_SCHEMA,
-      },
-    });
+    let planResult;
+    try {
+      planResult = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite-preview",
+        contents: getPlanningPrompt(project.sourceContent, slideCount),
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: PLANNING_SCHEMA,
+        },
+      });
+    } catch (err) {
+      if (isApiKeyInvalidError(err)) {
+        throw new ConvexError("API_KEY_INVALID");
+      }
+      throw err;
+    }
 
     const plan = JSON.parse(planResult.text ?? "{}");
 
@@ -163,9 +179,11 @@ export const improveSlide = action({
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const s = slide as any;
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: `다음 카드뉴스 슬라이드를 개선해주세요.
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite-preview",
+        contents: `다음 카드뉴스 슬라이드를 개선해주세요.
 
 현재 슬라이드:
 - 제목: ${s.content.title}
@@ -175,19 +193,25 @@ ${s.content.body ? `- 본문: ${s.content.body}` : ""}
 사용자 요청: ${instruction}
 
 개선된 결과를 JSON으로 반환해주세요.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "object" as const,
-          properties: {
-            title: { type: "string" as const },
-            subtitle: { type: "string" as const },
-            body: { type: "string" as const },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object" as const,
+            properties: {
+              title: { type: "string" as const },
+              subtitle: { type: "string" as const },
+              body: { type: "string" as const },
+            },
+            required: ["title"],
           },
-          required: ["title"],
         },
-      },
-    });
+      });
+    } catch (err) {
+      if (isApiKeyInvalidError(err)) {
+        throw new ConvexError("API_KEY_INVALID");
+      }
+      throw err;
+    }
 
     const improved = JSON.parse(response.text ?? "{}");
     return {

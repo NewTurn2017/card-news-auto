@@ -147,7 +147,9 @@ export default function CreatePage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       const data = (err as { data?: string })?.data
-      if (data === 'API_KEY_REQUIRED' || msg.includes('API_KEY_REQUIRED') || msg.includes('API key') || msg.includes('api key')) {
+      if (data === 'API_KEY_INVALID' || msg.includes('API_KEY_INVALID') || msg.includes('API key not valid')) {
+        setError('API_KEY_INVALID')
+      } else if (data === 'API_KEY_REQUIRED' || msg.includes('API_KEY_REQUIRED')) {
         setError('API_KEY')
       } else {
         setError(msg)
@@ -177,7 +179,9 @@ export default function CreatePage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       const data = (err as { data?: string })?.data
-      if (data === 'API_KEY_REQUIRED' || msg.includes('API_KEY_REQUIRED') || msg.includes('API key') || msg.includes('api key')) {
+      if (data === 'API_KEY_INVALID' || msg.includes('API_KEY_INVALID') || msg.includes('API key not valid')) {
+        setError('API_KEY_INVALID')
+      } else if (data === 'API_KEY_REQUIRED' || msg.includes('API_KEY_REQUIRED')) {
         setError('API_KEY')
       } else {
         setError(msg)
@@ -465,14 +469,38 @@ export default function CreatePage() {
             {error && (
               <div className='px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-sm'>
                 {error === 'API_KEY' ? (
-                  <div className='flex items-center justify-between'>
-                    <span className='text-red-400'>Gemini API Key가 설정되지 않았습니다.</span>
+                  <div className='flex flex-col gap-2'>
+                    <span className='text-red-400 font-medium'>Gemini API Key가 설정되지 않았습니다.</span>
+                    <span className='text-red-400/70 text-xs'>설정 페이지에서 API Key를 등록해주세요.</span>
                     <Link
                       href='/settings'
-                      className='px-3 py-1 text-xs font-semibold bg-accent text-background rounded-lg hover:bg-accent-hover transition-colors'
+                      className='self-start px-3 py-1.5 text-xs font-semibold bg-accent text-background rounded-lg hover:bg-accent-hover transition-colors'
                     >
                       설정으로 이동
                     </Link>
+                  </div>
+                ) : error === 'API_KEY_INVALID' ? (
+                  <div className='flex flex-col gap-2'>
+                    <span className='text-red-400 font-medium'>Gemini API Key가 유효하지 않습니다.</span>
+                    <span className='text-red-400/70 text-xs'>
+                      입력한 API Key가 만료되었거나 잘못되었습니다. Google AI Studio에서 새 키를 발급받거나 기존 키를 확인해주세요.
+                    </span>
+                    <div className='flex gap-2'>
+                      <Link
+                        href='/settings'
+                        className='px-3 py-1.5 text-xs font-semibold bg-accent text-background rounded-lg hover:bg-accent-hover transition-colors'
+                      >
+                        키 재설정
+                      </Link>
+                      <a
+                        href='https://aistudio.google.com/apikey'
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        className='px-3 py-1.5 text-xs font-semibold border border-border text-muted rounded-lg hover:text-foreground hover:border-foreground/30 transition-colors'
+                      >
+                        AI Studio에서 발급 ↗
+                      </a>
+                    </div>
                   </div>
                 ) : (
                   <span className='text-red-400'>{error}</span>

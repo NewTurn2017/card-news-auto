@@ -19,11 +19,20 @@ async function getDecryptedApiKey(ctx: { runQuery: Function }) {
   throw new ConvexError("API_KEY_REQUIRED");
 }
 
+function isApiKeyInvalidError(err: unknown): boolean {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = String((err as { message: string }).message);
+    return msg.includes("API_KEY_INVALID") || msg.includes("API key not valid");
+  }
+  return false;
+}
+
 async function summarizeWithGemini(apiKey: string, content: string): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
-    contents: `다음 콘텐츠를 카드뉴스 제작에 적합하게 핵심 내용을 정리해주세요.
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: `다음 콘텐츠를 카드뉴스 제작에 적합하게 핵심 내용을 정리해주세요.
 - 주요 포인트 5~8개로 구조화
 - 각 포인트는 한 문장으로 간결하게
 - 통계나 수치가 있으면 포함
@@ -31,8 +40,14 @@ async function summarizeWithGemini(apiKey: string, content: string): Promise<str
 
 콘텐츠:
 ${content.slice(0, 10000)}`,
-  });
-  return response.text ?? "";
+    });
+    return response.text ?? "";
+  } catch (err) {
+    if (isApiKeyInvalidError(err)) {
+      throw new ConvexError("API_KEY_INVALID");
+    }
+    throw err;
+  }
 }
 
 // ─── URL 크롤링 ─────────────────────────────────────────────
@@ -216,12 +231,19 @@ export const collectFromSearch = action({
     if (!rawContent) {
       const apiKey = await getDecryptedApiKey(ctx);
       const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite-preview",
-        contents: `다음 주제에 대해 최신 정보를 검색하고 정리해주세요: ${query}`,
-        config: { tools: [{ googleSearch: {} }] },
-      });
-      rawContent = response.text ?? "";
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite-preview",
+          contents: `다음 주제에 대해 최신 정보를 검색하고 정리해주세요: ${query}`,
+          config: { tools: [{ googleSearch: {} }] },
+        });
+        rawContent = response.text ?? "";
+      } catch (err) {
+        if (isApiKeyInvalidError(err)) {
+          throw new ConvexError("API_KEY_INVALID");
+        }
+        throw err;
+      }
     }
 
     const apiKey = await getDecryptedApiKey(ctx);
@@ -271,20 +293,22 @@ export const collectFromYoutube = action({
     const ai = new GoogleGenAI({ apiKey });
 
     // Phase 1: 영상 분석 (multimodal - 시각 + 청각)
-    const analysisResult = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              fileData: {
-                mimeType: "video/*",
-                fileUri: youtubeUrl,
+    let analysisResult;
+    try {
+      analysisResult = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite-preview",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                fileData: {
+                  mimeType: "video/*",
+                  fileUri: youtubeUrl,
+                },
               },
-            },
-            {
-              text: `이 YouTube 영상을 분석하여 인스타그램 카드뉴스 제작에 적합한 핵심 내용을 추출해주세요.
+              {
+                text: `이 YouTube 영상을 분석하여 인스타그램 카드뉴스 제작에 적합한 핵심 내용을 추출해주세요.
 
 다음 형식으로 구조화해주세요:
 1. 영상 주제 (한 줄 요약)
@@ -294,12 +318,18 @@ export const collectFromYoutube = action({
 5. 한국어로 작성
 
 카드뉴스는 짧고 임팩트 있는 문장이 중요합니다. 추상적 표현 대신 구체적 사실 위주로 정리해주세요.`,
-            },
-          ],
-        },
-      ],
-      config: { temperature: 0.3, maxOutputTokens: 8192 },
-    });
+              },
+            ],
+          },
+        ],
+        config: { temperature: 0.3, maxOutputTokens: 8192 },
+      });
+    } catch (err) {
+      if (isApiKeyInvalidError(err)) {
+        throw new ConvexError("API_KEY_INVALID");
+      }
+      throw err;
+    }
 
     const analysisText = analysisResult.text ?? "";
     if (!analysisText.trim()) {
