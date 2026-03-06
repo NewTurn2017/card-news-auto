@@ -7,9 +7,11 @@ import GenerationProgress from '@/components/generate/GenerationProgress'
 import { useQuery, useMutation, useAction } from 'convex/react'
 import { api } from '../../../../convex/_generated/api'
 import type { Id } from '../../../../convex/_generated/dataModel'
-import { ExternalLink, Play, AtSign, SearchIcon, AlignJustify, Zap, Loader2 } from 'lucide-react'
+import { ExternalLink, Play, AtSign, SearchIcon, AlignJustify, Zap, Loader2, Bookmark } from 'lucide-react'
+import GenerationPresetSelector from '@/components/create/GenerationPresetSelector'
+import SavedUrlsTab from '@/components/create/SavedUrlsTab'
 
-type SourceType = 'url' | 'sns' | 'search' | 'text' | 'youtube'
+type SourceType = 'url' | 'sns' | 'search' | 'text' | 'youtube' | 'library'
 
 const SOURCE_TABS: { id: SourceType; label: string; icon: ReactNode; desc: string }[] = [
   { id: 'url', label: 'URL', icon: <ExternalLink size={18} />, desc: '웹페이지, 뉴스, 블로그 URL' },
@@ -17,6 +19,7 @@ const SOURCE_TABS: { id: SourceType; label: string; icon: ReactNode; desc: strin
   { id: 'sns', label: 'SNS', icon: <AtSign size={18} />, desc: 'Threads, Instagram, X' },
   { id: 'search', label: '검색', icon: <SearchIcon size={18} />, desc: '키워드로 AI 검색' },
   { id: 'text', label: '텍스트', icon: <AlignJustify size={18} />, desc: '직접 내용 입력' },
+  { id: 'library', label: '라이브러리', icon: <Bookmark size={18} />, desc: '저장된 URL에서 빠르게 수집' },
 ]
 
 const SNS_PLATFORMS = [
@@ -38,6 +41,7 @@ export default function CreatePage() {
   const [activeTab, setActiveTab] = useState<SourceType>('url')
   const [projectId, setProjectId] = useState<Id<'projects'> | null>(null)
   const [selectedSlideCount, setSelectedSlideCount] = useState(7)
+  const [selectedPresetId, setSelectedPresetId] = useState<Id<'generationPresets'> | null>(null)
 
   // URL input state
   const [url, setUrl] = useState('')
@@ -93,6 +97,7 @@ export default function CreatePage() {
   }, [project?.status, projectId, router])
 
   const handleCollect = async () => {
+    if (activeTab === 'library') return // library tab handles its own flow
     if (activeTab !== 'text' && !hasApiKey) {
       router.push('/settings')
       return
@@ -102,14 +107,15 @@ export default function CreatePage() {
     setError(null)
 
     try {
-      const titleMap: Record<SourceType, string> = {
+      const collectableTab = activeTab as Exclude<SourceType, 'library'>
+      const titleMap: Record<Exclude<SourceType, 'library'>, string> = {
         url: '새 카드뉴스',
         youtube: '새 카드뉴스',
         sns: `@${snsUsername}`,
         search: searchQuery,
         text: '텍스트 입력',
       }
-      const inputMap: Record<SourceType, string> = {
+      const inputMap: Record<Exclude<SourceType, 'library'>, string> = {
         url: url,
         youtube: youtubeUrl,
         sns: snsUsername,
@@ -117,9 +123,9 @@ export default function CreatePage() {
         text: textContent.slice(0, 100),
       }
       const id = await createProjectMutation({
-        title: titleMap[activeTab],
-        sourceType: activeTab,
-        sourceInput: inputMap[activeTab],
+        title: titleMap[collectableTab],
+        sourceType: collectableTab,
+        sourceInput: inputMap[collectableTab],
       })
       setProjectId(id)
 
@@ -175,7 +181,11 @@ export default function CreatePage() {
     setError(null)
     setIsStartingGeneration(true)
     try {
-      await generateCardNews({ projectId, slideCount: selectedSlideCount })
+      await generateCardNews({
+        projectId,
+        slideCount: selectedSlideCount,
+        presetId: selectedPresetId ?? undefined,
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       const data = (err as { data?: string })?.data
@@ -204,6 +214,7 @@ export default function CreatePage() {
     if (activeTab === 'sns') return snsUsername.trim().length > 0
     if (activeTab === 'search') return searchQuery.trim().length > 0
     if (activeTab === 'text') return textContent.trim().length > 20
+    if (activeTab === 'library') return false // library has its own selection flow
     return false
   }
 
@@ -438,6 +449,15 @@ export default function CreatePage() {
                 </div>
               )}
 
+              {activeTab === 'library' && (
+                <SavedUrlsTab
+                  onSelectUrl={(selectedUrl) => {
+                    setUrl(selectedUrl)
+                    setActiveTab('url')
+                  }}
+                />
+              )}
+
               {activeTab === 'text' && (
                 <div className='flex flex-col gap-4'>
                   <div className='flex flex-col gap-2'>
@@ -563,24 +583,36 @@ export default function CreatePage() {
               </div>
             </div>
 
-            {/* Slide count selector */}
+            {/* Generation options */}
             <div className='rounded-2xl border border-border bg-surface p-4 md:p-6'>
               <p className='text-xs font-semibold text-muted uppercase tracking-wider mb-4'>
                 생성 옵션
               </p>
-              <div className='flex flex-col gap-2'>
-                <label className='text-sm text-muted'>슬라이드 수</label>
-                <div className='flex gap-2'>
-                  {[5, 7, 9, 11].map((count) => (
-                    <button
-                      key={count}
-                      onClick={() => setSelectedSlideCount(count)}
-                      className='flex-1 py-2 rounded-xl border border-border bg-background text-sm text-muted hover:border-accent/40 hover:text-accent transition-colors data-[selected=true]:border-accent data-[selected=true]:text-accent data-[selected=true]:bg-accent/10'
-                      data-selected={count === selectedSlideCount}
-                    >
-                      {count}장
-                    </button>
-                  ))}
+              <div className='flex flex-col gap-5'>
+                {/* Preset selector */}
+                <GenerationPresetSelector
+                  selectedPresetId={selectedPresetId}
+                  onSelect={setSelectedPresetId}
+                />
+
+                {/* Slide count slider */}
+                <div className='flex flex-col gap-2'>
+                  <div className='flex items-center justify-between'>
+                    <label className='text-sm text-muted'>슬라이드 수</label>
+                    <span className='text-sm font-bold text-accent'>{selectedSlideCount}장</span>
+                  </div>
+                  <input
+                    type='range'
+                    min={1}
+                    max={10}
+                    value={selectedSlideCount}
+                    onChange={(e) => setSelectedSlideCount(Number(e.target.value))}
+                    className='w-full accent-accent'
+                  />
+                  <div className='flex justify-between text-xs text-muted'>
+                    <span>1장</span>
+                    <span>10장</span>
+                  </div>
                 </div>
               </div>
             </div>

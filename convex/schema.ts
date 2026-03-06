@@ -78,6 +78,12 @@ export default defineSchema({
       titleColor: v.optional(v.string()),
       subtitleColor: v.optional(v.string()),
       bodyColor: v.optional(v.string()),
+      titleLineHeight: v.optional(v.number()),
+      titleLetterSpacing: v.optional(v.number()),
+      subtitleLineHeight: v.optional(v.number()),
+      subtitleLetterSpacing: v.optional(v.number()),
+      bodyLineHeight: v.optional(v.number()),
+      bodyLetterSpacing: v.optional(v.number()),
     }),
     image: v.optional(
       v.object({
@@ -98,7 +104,21 @@ export default defineSchema({
     .index("by_projectId", ["projectId"])
     .index("by_projectId_order", ["projectId", "order"]),
 
-  // 사용자 스타일 프리셋
+  // 생성 스타일 프리셋 (톤, 말투, 글자수 등)
+  generationPresets: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    tone: v.string(),
+    writingStyle: v.string(),
+    contentLength: v.string(),
+    targetAudience: v.optional(v.string()),
+    additionalInstructions: v.optional(v.string()),
+    isDefault: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  // 사용자 스타일 프리셋 (비주얼)
   stylePresets: defineTable({
     userId: v.id("users"),
     name: v.string(),
@@ -119,9 +139,41 @@ export default defineSchema({
       titleColor: v.optional(v.string()),
       subtitleColor: v.optional(v.string()),
       bodyColor: v.optional(v.string()),
+      titleLineHeight: v.optional(v.number()),
+      titleLetterSpacing: v.optional(v.number()),
+      subtitleLineHeight: v.optional(v.number()),
+      subtitleLetterSpacing: v.optional(v.number()),
+      bodyLineHeight: v.optional(v.number()),
+      bodyLetterSpacing: v.optional(v.number()),
     }),
     createdAt: v.number(),
   }).index("by_userId", ["userId"]),
+
+  // 저장된 URL 폴더
+  savedUrlFolders: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    order: v.number(),
+    createdAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  // 저장된 URL (나만의 라이브러리)
+  savedUrls: defineTable({
+    userId: v.id("users"),
+    url: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    thumbnailUrl: v.optional(v.string()),
+    folderId: v.optional(v.id("savedUrlFolders")),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_folderId", ["userId", "folderId"])
+    .index("by_userId_createdAt", ["userId", "createdAt"])
+    .searchIndex("search_savedUrls", {
+      searchField: "title",
+      filterFields: ["userId"],
+    }),
 
   // 수집된 소스 자료
   sources: defineTable({
