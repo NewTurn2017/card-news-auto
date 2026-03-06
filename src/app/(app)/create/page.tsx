@@ -106,6 +106,7 @@ export default function CreatePage() {
     setSourcePreview(null)
     setError(null)
 
+    let createdId: Id<'projects'> | null = null
     try {
       const collectableTab = activeTab as Exclude<SourceType, 'library'>
       const titleMap: Record<Exclude<SourceType, 'library'>, string> = {
@@ -127,6 +128,7 @@ export default function CreatePage() {
         sourceType: collectableTab,
         sourceInput: inputMap[collectableTab],
       })
+      createdId = id
       setProjectId(id)
 
       if (activeTab === 'text') {
@@ -161,9 +163,13 @@ export default function CreatePage() {
         setError(msg)
       }
       // Reset project status so UI doesn't stay stuck on "collecting"
-      if (projectId) {
-        await updateProject({ projectId, status: 'draft' }).catch(() => {})
+      // Use local variable since React state (projectId) may not have updated yet
+      const resetId = createdId ?? projectId
+      if (resetId) {
+        await updateProject({ projectId: resetId, status: 'draft' }).catch(() => {})
       }
+      // Clear projectId so isGenerating doesn't keep showing progress view
+      setProjectId(null)
       console.error('Collection error:', err)
     } finally {
       setIsCollecting(false)
