@@ -4,6 +4,7 @@ import { ConvexClientProvider } from "@/components/providers/ConvexClientProvide
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://cardflow.codewithgenie.com"),
   title: "CardFlow — AI 카드뉴스 자동 생성",
   description: "URL, SNS, 검색, 텍스트를 1분 만에 프로급 카드뉴스로",
 };
