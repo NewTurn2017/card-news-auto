@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { SlideImage } from "@/types";
+import ImageSearchPanel from "./ImageSearchPanel";
 
 interface ImageControlsProps {
   image?: SlideImage;
@@ -10,6 +11,7 @@ interface ImageControlsProps {
 
 export default function ImageControls({ image, onChange }: ImageControlsProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -22,6 +24,7 @@ export default function ImageControls({ image, onChange }: ImageControlsProps) {
       size: 100,
       fit: "cover",
     });
+    setShowSearch(false);
   };
 
   const handleRemove = () => {
@@ -33,12 +36,23 @@ export default function ImageControls({ image, onChange }: ImageControlsProps) {
     <div className="flex flex-col gap-3">
       <label className="text-xs font-medium text-muted">첨부 이미지</label>
 
+      {/* Action buttons */}
       <div className="flex gap-2">
         <button
           onClick={() => fileRef.current?.click()}
           className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:bg-surface-hover hover:text-foreground"
         >
-          📎 첨부 이미지
+          첨부
+        </button>
+        <button
+          onClick={() => setShowSearch((v) => !v)}
+          className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+            showSearch
+              ? "border-accent bg-accent/10 text-accent"
+              : "border-border text-muted hover:bg-surface-hover hover:text-foreground"
+          }`}
+        >
+          이미지 검색
         </button>
         {image && (
           <button
@@ -58,6 +72,17 @@ export default function ImageControls({ image, onChange }: ImageControlsProps) {
         className="hidden"
       />
 
+      {/* Image search panel */}
+      {showSearch && (
+        <div className="rounded-lg border border-border p-3">
+          <ImageSearchPanel
+            onSelect={(img) => onChange(img)}
+            onClose={() => setShowSearch(false)}
+          />
+        </div>
+      )}
+
+      {/* Image controls */}
       {image && (
         <div className="flex flex-col gap-3">
           <div>
@@ -72,6 +97,44 @@ export default function ImageControls({ image, onChange }: ImageControlsProps) {
               value={image.opacity}
               onChange={(e) =>
                 onChange({ ...image, opacity: Number(e.target.value) })
+              }
+              className="w-full accent-accent"
+            />
+          </div>
+          <div>
+            <div className="mb-1 flex justify-between text-xs text-muted">
+              <span>가로 위치</span>
+              <span>{image.position.x}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={image.position.x}
+              onChange={(e) =>
+                onChange({
+                  ...image,
+                  position: { ...image.position, x: Number(e.target.value) },
+                })
+              }
+              className="w-full accent-accent"
+            />
+          </div>
+          <div>
+            <div className="mb-1 flex justify-between text-xs text-muted">
+              <span>세로 위치</span>
+              <span>{image.position.y}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={image.position.y}
+              onChange={(e) =>
+                onChange({
+                  ...image,
+                  position: { ...image.position, y: Number(e.target.value) },
+                })
               }
               className="w-full accent-accent"
             />

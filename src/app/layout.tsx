@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
+import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
 import "./globals.css";
-import Sidebar from "@/components/layout/Sidebar";
 
 export const metadata: Metadata = {
-  title: "카드뉴스 메이커",
-  description: "AI가 자동으로 카드뉴스를 만들어드립니다",
+  title: "CardFlow — AI 카드뉴스 자동 생성",
+  description: "URL, SNS, 검색, 텍스트를 1분 만에 프로급 카드뉴스로",
 };
 
 export default function RootLayout({
@@ -13,13 +14,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className="dark">
-      <body className="antialiased">
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto">{children}</main>
-        </div>
-      </body>
-    </html>
+    <ConvexAuthNextjsServerProvider>
+      <html lang="ko" className="dark">
+        <body className="antialiased">
+          <ConvexClientProvider>
+            {children}
+          </ConvexClientProvider>
+        </body>
+      </html>
+    </ConvexAuthNextjsServerProvider>
   );
 }

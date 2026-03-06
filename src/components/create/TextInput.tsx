@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ClipboardList } from "lucide-react";
 
 interface TextInputProps {
   onSubmit: (text: string) => void;
@@ -13,7 +14,7 @@ export default function TextInput({ onSubmit, isLoading }: TextInputProps) {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6">
       <div className="flex items-center gap-2 text-sm text-muted">
-        <span>📋</span>
+        <ClipboardList size={16} />
         <span className="font-medium text-foreground">텍스트 붙여넣기</span>
       </div>
       <textarea

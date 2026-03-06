@@ -14,7 +14,9 @@ export interface CardSlide {
   order: number;
   type: "cover" | "content" | "ending";
   layoutId: string;
-  colorPreset: "light" | "dark";
+  colorPreset: string;
+  fontFamily?: string;
+  style?: SlideStyle;
   content: SlideContent;
   image?: SlideImage;
   htmlContent: string;
@@ -46,17 +48,40 @@ export interface LayoutTemplate {
   name: string;
   description: string;
   className: string;
-  textPosition: "top" | "center" | "bottom" | "top-left" | "bottom-left";
+  textPosition: "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
   textAlign: "left" | "center" | "right";
 }
 
 export interface ColorPreset {
-  id: "light" | "dark";
+  id: string;
   name: string;
-  bgColor: string;
+  bgType: "solid" | "gradient";
+  bgColor?: string;
+  gradientFrom?: string;
+  gradientTo?: string;
+  gradientDirection?: string;
   textColor: string;
   accentColor: string;
-  subtextColor: string;
+  subtextColor?: string;
+}
+
+export interface SlideStyle {
+  bgType: "solid" | "gradient";
+  bgColor: string;
+  gradientFrom?: string;
+  gradientTo?: string;
+  gradientDirection?: string;
+  textColor: string;
+  accentColor: string;
+  fontFamily: string;
+  categorySize?: number;
+  titleSize?: number;
+  subtitleSize?: number;
+  bodySize?: number;
+  categoryColor?: string;
+  titleColor?: string;
+  subtitleColor?: string;
+  bodyColor?: string;
 }
 
 export interface GenerateRequest {
