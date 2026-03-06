@@ -309,7 +309,8 @@ export default function CreatePage() {
               </span>
             </div>
 
-            {/* Input area */}
+            {/* Input area — hidden when library tab is active (rendered full-width below) */}
+            {activeTab !== 'library' && (
             <div className='rounded-2xl border border-border bg-surface p-4 md:p-6'>
               {activeTab === 'url' && (
                 <div className='flex flex-col gap-4'>
@@ -449,15 +450,6 @@ export default function CreatePage() {
                 </div>
               )}
 
-              {activeTab === 'library' && (
-                <SavedUrlsTab
-                  onSelectUrl={(selectedUrl) => {
-                    setUrl(selectedUrl)
-                    setActiveTab('url')
-                  }}
-                />
-              )}
-
               {activeTab === 'text' && (
                 <div className='flex flex-col gap-4'>
                   <div className='flex flex-col gap-2'>
@@ -484,9 +476,10 @@ export default function CreatePage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Error message */}
-            {error && (
+            {activeTab !== 'library' && error && (
               <div className='px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-sm'>
                 {error === 'API_KEY' ? (
                   <div className='flex flex-col gap-2'>
@@ -529,20 +522,22 @@ export default function CreatePage() {
             )}
 
             {/* Collect button */}
-            <button
-              onClick={handleCollect}
-              disabled={!canCollect() || isCollecting}
-              className='w-full py-4 bg-accent text-background font-bold rounded-xl hover:bg-accent-hover transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.01]'
-            >
-              {isCollecting ? (
-                <span className='flex items-center justify-center gap-3'>
-                  <span className='w-5 h-5 border-2 border-background/30 border-t-background rounded-full animate-spin' />
-                  {activeTab === 'text' ? '내용 확인 중...' : '수집 중...'}
-                </span>
-              ) : (
-                <span>{activeTab === 'text' ? '내용 확인' : '소스 수집 시작'} →</span>
-              )}
-            </button>
+            {activeTab !== 'library' && (
+              <button
+                onClick={handleCollect}
+                disabled={!canCollect() || isCollecting}
+                className='w-full py-4 bg-accent text-background font-bold rounded-xl hover:bg-accent-hover transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.01]'
+              >
+                {isCollecting ? (
+                  <span className='flex items-center justify-center gap-3'>
+                    <span className='w-5 h-5 border-2 border-background/30 border-t-background rounded-full animate-spin' />
+                    {activeTab === 'text' ? '내용 확인 중...' : '수집 중...'}
+                  </span>
+                ) : (
+                  <span>{activeTab === 'text' ? '내용 확인' : '소스 수집 시작'} →</span>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           /* Source preview + generate */
@@ -637,6 +632,26 @@ export default function CreatePage() {
           </div>
         )}
       </div>
+
+      {/* Library — full-width outside max-w-3xl */}
+      {!sourcePreview && activeTab === 'library' && (
+        <div className='px-4 md:px-8 pb-8'>
+          <SavedUrlsTab
+            onSelectUrl={(selectedUrl, sourceType) => {
+              if (sourceType === 'youtube') {
+                setYoutubeUrl(selectedUrl)
+                setActiveTab('youtube')
+              } else if (sourceType === 'sns') {
+                setUrl(selectedUrl)
+                setActiveTab('sns')
+              } else {
+                setUrl(selectedUrl)
+                setActiveTab('url')
+              }
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }
