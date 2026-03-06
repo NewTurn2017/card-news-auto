@@ -63,6 +63,7 @@ export default function CreatePage() {
 
   // Subscribe to project for real-time progress
   const project = useQuery(api.projects.getProject, projectId ? { projectId } : 'skip')
+  const hasApiKey = useQuery(api.userProfiles.hasApiKey)
 
   const createProjectMutation = useMutation(api.projects.createProject)
   const collectFromUrl = useAction(api.actions.collect.collectFromUrl)
@@ -92,6 +93,10 @@ export default function CreatePage() {
   }, [project?.status, projectId, router])
 
   const handleCollect = async () => {
+    if (activeTab !== 'text' && !hasApiKey) {
+      router.push('/settings')
+      return
+    }
     setIsCollecting(true)
     setSourcePreview(null)
     setError(null)
@@ -161,6 +166,10 @@ export default function CreatePage() {
 
   const handleGenerate = async () => {
     if (!projectId || !sourcePreview) return
+    if (!hasApiKey) {
+      router.push('/settings')
+      return
+    }
     setError(null)
     setIsStartingGeneration(true)
     try {
