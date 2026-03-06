@@ -36,6 +36,11 @@ export interface SlideImage {
   position: { x: number; y: number };
   size: number;
   fit: "cover" | "contain" | "fill";
+  attribution?: {
+    name: string;
+    profileUrl: string;
+    source: "unsplash" | "pexels";
+  };
 }
 
 export interface ProjectSettings {

@@ -10,6 +10,10 @@ interface ImageResult {
   thumbUrl: string;
   url: string;
   attribution: string;
+  photographerName: string;
+  photographerUrl: string;
+  downloadUrl?: string;
+  source: "unsplash" | "pexels";
 }
 
 interface ImageSearchPanelProps {
@@ -25,6 +29,7 @@ export default function ImageSearchPanel({ onSelect, onClose }: ImageSearchPanel
   const [isSearching, setIsSearching] = useState(false);
 
   const searchImagesAction = useAction(api.actions.images.searchImages);
+  const triggerDownload = useAction(api.actions.images.triggerUnsplashDownload);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +43,10 @@ export default function ImageSearchPanel({ onSelect, onClose }: ImageSearchPanel
           thumbUrl: img.thumbUrl,
           url: img.url,
           attribution: img.attribution,
+          photographerName: img.photographerName,
+          photographerUrl: img.photographerUrl,
+          downloadUrl: img.downloadUrl,
+          source: img.source,
         })),
       );
     } catch (err) {
@@ -49,12 +58,21 @@ export default function ImageSearchPanel({ onSelect, onClose }: ImageSearchPanel
   };
 
   const handleSelect = (img: ImageResult) => {
+    // Unsplash API guideline: trigger download on use
+    if (img.source === "unsplash" && img.downloadUrl) {
+      triggerDownload({ downloadUrl: img.downloadUrl }).catch(() => {});
+    }
     onSelect({
       url: img.url,
       opacity: 60,
       position: { x: 50, y: 50 },
       size: 100,
       fit: "cover",
+      attribution: {
+        name: img.photographerName,
+        profileUrl: img.photographerUrl,
+        source: img.source,
+      },
     });
     onClose();
   };
@@ -110,6 +128,15 @@ export default function ImageSearchPanel({ onSelect, onClose }: ImageSearchPanel
                   className="h-full w-full object-cover transition-opacity group-hover:opacity-80"
                   loading="lazy"
                 />
+                <span className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-[9px] text-white/80 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                  <a href={`${img.photographerUrl}?utm_source=cardflow&utm_medium=referral`} target="_blank" rel="noopener noreferrer" className="hover:underline" onClick={(e) => e.stopPropagation()}>
+                    {img.photographerName}
+                  </a>
+                  {' / '}
+                  <a href={`https://${img.source === 'unsplash' ? 'unsplash.com' : 'pexels.com'}?utm_source=cardflow&utm_medium=referral`} target="_blank" rel="noopener noreferrer" className="hover:underline" onClick={(e) => e.stopPropagation()}>
+                    {img.source === 'unsplash' ? 'Unsplash' : 'Pexels'}
+                  </a>
+                </span>
               </button>
             ))}
           </div>

@@ -8,6 +8,9 @@ interface ImageResult {
   thumbUrl: string;
   source: "unsplash" | "pexels";
   attribution: string;
+  photographerName: string;
+  photographerUrl: string;
+  downloadUrl?: string;
   width: number;
   height: number;
 }
@@ -46,6 +49,9 @@ export const searchImages = action({
               thumbUrl: photo.urls.small,
               source: "unsplash",
               attribution: `Photo by ${photo.user.name} on Unsplash`,
+              photographerName: photo.user.name,
+              photographerUrl: photo.user.links.html,
+              downloadUrl: photo.links.download_location,
               width: photo.width,
               height: photo.height,
             });
@@ -77,6 +83,8 @@ export const searchImages = action({
               thumbUrl: photo.src.medium,
               source: "pexels",
               attribution: `Photo by ${photo.photographer} on Pexels`,
+              photographerName: photo.photographer,
+              photographerUrl: photo.photographer_url,
               width: photo.width,
               height: photo.height,
             });
@@ -88,5 +96,14 @@ export const searchImages = action({
     }
 
     return results;
+  },
+});
+
+export const triggerUnsplashDownload = action({
+  args: { downloadUrl: v.string() },
+  handler: async (_ctx, { downloadUrl }) => {
+    const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (!unsplashKey) return;
+    await fetch(`${downloadUrl}?client_id=${unsplashKey}`);
   },
 });
