@@ -141,7 +141,8 @@ export default function CreatePage() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (msg.includes('API_KEY_REQUIRED') || msg.includes('API key') || msg.includes('api key')) {
+      const data = (err as { data?: string })?.data
+      if (data === 'API_KEY_REQUIRED' || msg.includes('API_KEY_REQUIRED') || msg.includes('API key') || msg.includes('api key')) {
         setError('API_KEY')
       } else {
         setError(msg)
@@ -162,7 +163,8 @@ export default function CreatePage() {
       await generateCardNews({ projectId, slideCount: selectedSlideCount })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (msg.includes('API_KEY_REQUIRED') || msg.includes('API key') || msg.includes('api key')) {
+      const data = (err as { data?: string })?.data
+      if (data === 'API_KEY_REQUIRED' || msg.includes('API_KEY_REQUIRED') || msg.includes('API key') || msg.includes('api key')) {
         setError('API_KEY')
       } else {
         setError(msg)

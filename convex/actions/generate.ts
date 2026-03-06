@@ -1,6 +1,6 @@
 "use node";
 import { action } from "../_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { GoogleGenAI } from "@google/genai";
 import { internal } from "../_generated/api";
 import { decrypt } from "../lib/crypto";
@@ -15,7 +15,7 @@ async function getDecryptedApiKey(ctx: { runQuery: Function }) {
     // Plaintext key (legacy or not yet encrypted)
     return profile.geminiApiKey;
   }
-  throw new Error("API_KEY_REQUIRED");
+  throw new ConvexError("API_KEY_REQUIRED");
 }
 
 function getPlanningPrompt(sourceText: string, slideCount: number = 7) {
