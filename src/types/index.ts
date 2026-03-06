@@ -87,6 +87,12 @@ export interface SlideStyle {
   titleColor?: string;
   subtitleColor?: string;
   bodyColor?: string;
+  titleLineHeight?: number;
+  titleLetterSpacing?: number;
+  subtitleLineHeight?: number;
+  subtitleLetterSpacing?: number;
+  bodyLineHeight?: number;
+  bodyLetterSpacing?: number;
 }
 
 export interface GenerateRequest {

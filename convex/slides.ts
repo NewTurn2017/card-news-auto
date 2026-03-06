@@ -19,6 +19,12 @@ const styleValidator = v.object({
   titleColor: v.optional(v.string()),
   subtitleColor: v.optional(v.string()),
   bodyColor: v.optional(v.string()),
+  titleLineHeight: v.optional(v.number()),
+  titleLetterSpacing: v.optional(v.number()),
+  subtitleLineHeight: v.optional(v.number()),
+  subtitleLetterSpacing: v.optional(v.number()),
+  bodyLineHeight: v.optional(v.number()),
+  bodyLetterSpacing: v.optional(v.number()),
 });
 
 const contentValidator = v.object({

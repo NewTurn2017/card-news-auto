@@ -12,6 +12,7 @@ interface SwipeCarouselProps {
   cardHeight: number;
   scale: number;
   slideRefs: React.RefObject<(HTMLDivElement | null)[]>;
+  onSlideClick?: (e: React.PointerEvent) => void;
 }
 
 // Spring physics constants
@@ -28,6 +29,7 @@ export default function SwipeCarousel({
   cardHeight,
   scale,
   slideRefs,
+  onSlideClick,
 }: SwipeCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -212,7 +214,13 @@ export default function SwipeCarousel({
 
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 
-      if (!hasDragged.current) return; // Was a tap, not a swipe
+      if (!hasDragged.current) {
+        // Pointer capture redirects e.target to the capturing element,
+        // so we must release capture first, then find the real element under cursor
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        onSlideClick?.(e);
+        return; // Was a tap, not a swipe
+      }
 
       const v = pointerVelocity.current; // px/ms
       const currentPos = -offsetX.current / cardWidth;
@@ -240,7 +248,7 @@ export default function SwipeCarousel({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cardWidth, currentIndex, onIndexChange, snapTo, maxIndex]
+    [cardWidth, currentIndex, onIndexChange, snapTo, maxIndex, onSlideClick]
   );
 
   return (

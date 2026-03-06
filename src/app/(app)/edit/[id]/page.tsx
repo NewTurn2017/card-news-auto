@@ -11,7 +11,9 @@ import PhoneMockup from "@/components/preview/PhoneMockup";
 import InstagramFrame from "@/components/preview/InstagramFrame";
 import SwipeCarousel from "@/components/preview/SwipeCarousel";
 import ExportButton from "@/components/export/ExportButton";
+import InlineEditLayer, { type SlideClickInfo } from "@/components/preview/InlineEditLayer";
 import type { CardSlide, SlideContent, SlideStyle } from "@/types";
+import { getFontById } from "@/data/fonts";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapConvexSlide(slide: any): CardSlide {
@@ -41,8 +43,10 @@ export default function EditPage() {
   const params = useParams();
   const router = useRouter();
   const allSlideRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
+  const [slideClickInfo, setSlideClickInfo] = useState<SlideClickInfo | null>(null);
 
   // Optimistic UI state
   const [localContent, setLocalContent] = useState<SlideContent | null>(null);
@@ -55,7 +59,9 @@ export default function EditPage() {
   const project = useQuery(api.projects.getProject, { projectId });
   const slides = useQuery(api.slides.getSlides, { projectId });
   const updateSlideMutation = useMutation(api.slides.updateSlide);
+  const updateStyleMutation = useMutation(api.slides.updateSlideStyle);
   const createSlideMutation = useMutation(api.slides.createSlide);
+  const styleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const safeIndex = slides
     ? Math.min(currentSlideIndex, Math.max(0, slides.length - 1))
@@ -289,24 +295,57 @@ export default function EditPage() {
             mobileTab !== "preview" ? "hidden md:flex" : ""
           }`}
         >
-          <PhoneMockup width={cardWidth}>
-            <InstagramFrame
-              profileName={project.title}
-              totalSlides={slides.length}
-              currentSlide={safeIndex}
-              onSlideSelect={goToSlide}
-            >
-              <SwipeCarousel
-                slides={allSlides}
-                currentIndex={safeIndex}
-                onIndexChange={goToSlide}
-                cardWidth={cardWidth}
-                cardHeight={cardHeight}
-                scale={previewScale}
-                slideRefs={allSlideRefs}
-              />
-            </InstagramFrame>
-          </PhoneMockup>
+          <p className="mb-2 text-center text-[11px] text-muted">
+            콘텐츠 내용을 클릭해서 수정하세요
+          </p>
+          <div ref={previewContainerRef} className="relative">
+            <PhoneMockup width={cardWidth}>
+              <InstagramFrame
+                profileName={project.title}
+                totalSlides={slides.length}
+                currentSlide={safeIndex}
+                onSlideSelect={goToSlide}
+              >
+                <SwipeCarousel
+                  slides={allSlides}
+                  currentIndex={safeIndex}
+                  onIndexChange={goToSlide}
+                  cardWidth={cardWidth}
+                  cardHeight={cardHeight}
+                  scale={previewScale}
+                  slideRefs={allSlideRefs}
+                  onSlideClick={(e) => setSlideClickInfo({ clientX: e.clientX, clientY: e.clientY, timestamp: Date.now() })}
+                />
+              </InstagramFrame>
+            </PhoneMockup>
+            <InlineEditLayer
+              containerRef={previewContainerRef}
+              slideRef={allSlideRefs.current[safeIndex] ?? null}
+              currentStyle={localStyle ?? convexSlide.style ?? { bgType: "solid", bgColor: "#0f0f0f", textColor: "#ffffff", accentColor: "#4ae3c0", fontFamily: "'Noto Sans KR', sans-serif" }}
+              currentContent={localContent ?? convexSlide.content ?? { title: "" }}
+              onStyleChange={(partial) => {
+                const current = localStyle ?? convexSlide.style ?? { bgType: "solid" as const, bgColor: "#0f0f0f", textColor: "#ffffff", accentColor: "#4ae3c0", fontFamily: "'Noto Sans KR', sans-serif" };
+                const newStyle = { ...current, ...partial };
+                setLocalStyle(newStyle);
+                if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
+                styleTimerRef.current = setTimeout(() => {
+                  updateStyleMutation({ slideId: convexSlide._id as Id<"slides">, style: newStyle });
+                }, 300);
+              }}
+              onFontChange={(fontId) => {
+                const font = getFontById(fontId);
+                const current = localStyle ?? convexSlide.style ?? { bgType: "solid" as const, bgColor: "#0f0f0f", textColor: "#ffffff", accentColor: "#4ae3c0", fontFamily: "'Noto Sans KR', sans-serif" };
+                const newStyle = { ...current, fontFamily: font.family };
+                setLocalStyle(newStyle);
+                if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
+                styleTimerRef.current = setTimeout(() => {
+                  updateStyleMutation({ slideId: convexSlide._id as Id<"slides">, style: newStyle });
+                }, 300);
+              }}
+              onContentChange={handleContentChange}
+              clickInfo={slideClickInfo}
+            />
+          </div>
         </div>
       </div>
     </div>

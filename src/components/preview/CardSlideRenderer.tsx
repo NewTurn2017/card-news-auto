@@ -109,6 +109,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.category ? (
                 <p
                   className='relative z-10 slide-category'
+                  data-field="category"
                   style={{
                     color: slide.style?.categoryColor ?? accentColor,
                     ...(slide.style?.categorySize
@@ -123,9 +124,12 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                 {slide.content.title && (
                   <h2
                     className='slide-title'
+                    data-field="title"
                     style={{
                       ...(slide.style?.titleColor ? { color: slide.style.titleColor } : {}),
                       ...(slide.style?.titleSize ? { fontSize: `${slide.style.titleSize}px` } : {}),
+                      ...(slide.style?.titleLineHeight != null ? { lineHeight: slide.style.titleLineHeight } : {}),
+                      ...(slide.style?.titleLetterSpacing != null ? { letterSpacing: `${slide.style.titleLetterSpacing}px` } : {}),
                     }}
                   >
                     {slide.content.title}
@@ -134,9 +138,12 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                 {slide.content.body && (
                   <p
                     className='slide-body'
+                    data-field="body"
                     style={{
                       color: slide.style?.bodyColor ?? subtextColor,
                       ...(slide.style?.bodySize ? { fontSize: `${slide.style.bodySize}px` } : {}),
+                      ...(slide.style?.bodyLineHeight != null ? { lineHeight: slide.style.bodyLineHeight } : {}),
+                      ...(slide.style?.bodyLetterSpacing != null ? { letterSpacing: `${slide.style.bodyLetterSpacing}px` } : {}),
                     }}
                   >
                     {slide.content.body}
@@ -146,11 +153,14 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.subtitle ? (
                 <p
                   className='relative z-10 slide-subtitle'
+                  data-field="subtitle"
                   style={{
                     color: slide.style?.subtitleColor ?? subtextColor,
                     ...(slide.style?.subtitleSize
                       ? { fontSize: `${slide.style.subtitleSize}px` }
                       : {}),
+                    ...(slide.style?.subtitleLineHeight != null ? { lineHeight: slide.style.subtitleLineHeight } : {}),
+                    ...(slide.style?.subtitleLetterSpacing != null ? { letterSpacing: `${slide.style.subtitleLetterSpacing}px` } : {}),
                   }}
                 >
                   {slide.content.subtitle}
@@ -162,6 +172,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.category && (
                 <p
                   className='slide-category'
+                  data-field="category"
                   style={{
                     color: slide.style?.categoryColor ?? accentColor,
                     ...(slide.style?.categorySize
@@ -175,9 +186,12 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.title && (
                 <h2
                   className='slide-title'
+                  data-field="title"
                   style={{
                     ...(slide.style?.titleColor ? { color: slide.style.titleColor } : {}),
                     ...(slide.style?.titleSize ? { fontSize: `${slide.style.titleSize}px` } : {}),
+                    ...(slide.style?.titleLineHeight != null ? { lineHeight: slide.style.titleLineHeight } : {}),
+                    ...(slide.style?.titleLetterSpacing != null ? { letterSpacing: `${slide.style.titleLetterSpacing}px` } : {}),
                   }}
                 >
                   {slide.content.title}
@@ -186,11 +200,14 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.subtitle && (
                 <p
                   className='slide-subtitle'
+                  data-field="subtitle"
                   style={{
                     color: slide.style?.subtitleColor ?? subtextColor,
                     ...(slide.style?.subtitleSize
                       ? { fontSize: `${slide.style.subtitleSize}px` }
                       : {}),
+                    ...(slide.style?.subtitleLineHeight != null ? { lineHeight: slide.style.subtitleLineHeight } : {}),
+                    ...(slide.style?.subtitleLetterSpacing != null ? { letterSpacing: `${slide.style.subtitleLetterSpacing}px` } : {}),
                   }}
                 >
                   {slide.content.subtitle}
@@ -199,9 +216,12 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.body && (
                 <p
                   className='slide-body'
+                  data-field="body"
                   style={{
                     color: slide.style?.bodyColor ?? subtextColor,
                     ...(slide.style?.bodySize ? { fontSize: `${slide.style.bodySize}px` } : {}),
+                    ...(slide.style?.bodyLineHeight != null ? { lineHeight: slide.style.bodyLineHeight } : {}),
+                    ...(slide.style?.bodyLetterSpacing != null ? { letterSpacing: `${slide.style.bodyLetterSpacing}px` } : {}),
                   }}
                 >
                   {slide.content.body}

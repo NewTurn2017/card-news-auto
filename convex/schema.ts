@@ -164,6 +164,9 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
+    sourceType: v.optional(
+      v.union(v.literal("url"), v.literal("youtube"), v.literal("sns")),
+    ),
     folderId: v.optional(v.id("savedUrlFolders")),
     createdAt: v.number(),
   })

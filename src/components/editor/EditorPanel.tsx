@@ -5,7 +5,6 @@ import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
-  Type,
   Palette,
   LayoutGrid,
   ImageIcon,
@@ -16,16 +15,13 @@ import {
   Trash2 as TrashIcon,
 } from "lucide-react";
 import SlideNavigation from "./SlideNavigation";
-import ContentFields from "./ContentFields";
 import ColorPresets from "./ColorPresets";
-import FontSelector from "./FontSelector";
 import LayoutSelector from "./LayoutSelector";
 import ImageControls from "./ImageControls";
 import SlideActions from "./SlideActions";
 import ImproveModal from "./ImproveModal";
 import type { SlideContent, SlideImage, SlideStyle } from "@/types";
 import { colorPresets } from "@/data/presets";
-import { getFontById, getFontByFamily } from "@/data/fonts";
 
 interface EditorPanelProps {
   projectId: Id<"projects">;
@@ -38,10 +34,9 @@ interface EditorPanelProps {
   onLocalStyleChange?: (style: SlideStyle | null) => void;
 }
 
-const ALL_SECTION_IDS = ["content", "style", "layout", "image"];
+const ALL_SECTION_IDS = ["style", "layout", "image"];
 
 const SECTIONS = [
-  { id: "content", label: "콘텐츠", icon: Type },
   { id: "style", label: "스타일", icon: Palette },
   { id: "layout", label: "레이아웃", icon: LayoutGrid },
   { id: "image", label: "이미지", icon: ImageIcon },
@@ -100,7 +95,6 @@ export default function EditorPanel({
   currentSlideIndex,
   onSlideChange,
   localContent,
-  onContentChange,
   onLocalStyleChange,
 }: EditorPanelProps) {
   // All sections open by default
@@ -247,11 +241,6 @@ export default function EditorPanel({
     await updateLayoutMutation({ slideId, layoutId });
   };
 
-  const handleSetFontFamily = (fontId: string) => {
-    const font = getFontById(fontId);
-    handleStyleChange({ fontFamily: font.family });
-  };
-
   const handleAddSlide = async () => {
     const lastSlide = slides[slides.length - 1];
     await createSlideMutation({
@@ -347,12 +336,6 @@ export default function EditorPanel({
         )?.id ?? "custom-solid";
   const colorPreset = matchedPreset;
 
-  // Resolve stored CSS family string back to font ID for FontSelector
-  const storedFamily = currentStyle.fontFamily;
-  const fontId = storedFamily
-    ? (getFontByFamily(storedFamily)?.id ?? "pretendard")
-    : "pretendard";
-
   return (
     <div className="relative flex h-full flex-col">
       {/* Toast */}
@@ -390,140 +373,8 @@ export default function EditorPanel({
             isOpen={openSections.has(section.id)}
             onToggle={() => toggleSection(section.id)}
           >
-            {section.id === "content" && (
-              <ContentFields content={localContent} onChange={onContentChange} />
-            )}
             {section.id === "style" && (
               <div className="flex flex-col gap-4">
-                <FontSelector
-                  selected={fontId}
-                  onChange={handleSetFontFamily}
-                />
-
-                {/* Font Size Controls */}
-                <div className="flex flex-col gap-3">
-                  <label className="block text-[11px] font-medium uppercase tracking-wide text-muted">
-                    글씨 크기
-                  </label>
-                  <div>
-                    <div className="mb-1 flex justify-between text-xs text-muted">
-                      <span>카테고리</span>
-                      <span>{currentStyle.categorySize ?? 20}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={10}
-                      max={40}
-                      value={currentStyle.categorySize ?? 20}
-                      onChange={(e) =>
-                        handleStyleChange({
-                          categorySize: Number(e.target.value),
-                        })
-                      }
-                      className="w-full accent-accent"
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-1 flex justify-between text-xs text-muted">
-                      <span>제목</span>
-                      <span>{currentStyle.titleSize ?? 52}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={24}
-                      max={80}
-                      value={currentStyle.titleSize ?? 52}
-                      onChange={(e) =>
-                        handleStyleChange({
-                          titleSize: Number(e.target.value),
-                        })
-                      }
-                      className="w-full accent-accent"
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-1 flex justify-between text-xs text-muted">
-                      <span>부제</span>
-                      <span>{currentStyle.subtitleSize ?? 30}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={14}
-                      max={50}
-                      value={currentStyle.subtitleSize ?? 30}
-                      onChange={(e) =>
-                        handleStyleChange({
-                          subtitleSize: Number(e.target.value),
-                        })
-                      }
-                      className="w-full accent-accent"
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-1 flex justify-between text-xs text-muted">
-                      <span>본문</span>
-                      <span>{currentStyle.bodySize ?? 24}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={12}
-                      max={40}
-                      value={currentStyle.bodySize ?? 24}
-                      onChange={(e) =>
-                        handleStyleChange({
-                          bodySize: Number(e.target.value),
-                        })
-                      }
-                      className="w-full accent-accent"
-                    />
-                  </div>
-                </div>
-
-                {/* Text Color Controls */}
-                <div className="flex flex-col gap-3">
-                  <label className="block text-[11px] font-medium uppercase tracking-wide text-muted">
-                    글씨 색상
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2 rounded-lg border border-border p-2">
-                      <input
-                        type="color"
-                        value={currentStyle.categoryColor ?? currentStyle.accentColor}
-                        onChange={(e) => handleStyleChange({ categoryColor: e.target.value })}
-                        className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
-                      />
-                      <span className="text-xs text-muted">카테고리</span>
-                    </div>
-                    <div className="flex items-center gap-2 rounded-lg border border-border p-2">
-                      <input
-                        type="color"
-                        value={currentStyle.titleColor ?? currentStyle.textColor}
-                        onChange={(e) => handleStyleChange({ titleColor: e.target.value })}
-                        className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
-                      />
-                      <span className="text-xs text-muted">제목</span>
-                    </div>
-                    <div className="flex items-center gap-2 rounded-lg border border-border p-2">
-                      <input
-                        type="color"
-                        value={currentStyle.subtitleColor ?? currentStyle.textColor}
-                        onChange={(e) => handleStyleChange({ subtitleColor: e.target.value })}
-                        className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
-                      />
-                      <span className="text-xs text-muted">부제</span>
-                    </div>
-                    <div className="flex items-center gap-2 rounded-lg border border-border p-2">
-                      <input
-                        type="color"
-                        value={currentStyle.bodyColor ?? currentStyle.textColor}
-                        onChange={(e) => handleStyleChange({ bodyColor: e.target.value })}
-                        className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
-                      />
-                      <span className="text-xs text-muted">본문</span>
-                    </div>
-                  </div>
-                </div>
-
                 <ColorPresets
                   selected={colorPreset}
                   customSolidColor={currentStyle.bgColor ?? "#0f0f0f"}
