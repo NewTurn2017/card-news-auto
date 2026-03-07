@@ -30,12 +30,16 @@ export default function ImproveModal({
   const [instruction, setInstruction] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Reset instruction when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setInstruction("");
-      setTimeout(() => textareaRef.current?.focus(), 100);
+    if (!isOpen) {
+      return;
     }
+
+    const rafId = window.requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
   }, [isOpen]);
 
   // ESC key to close

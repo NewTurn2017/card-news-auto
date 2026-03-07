@@ -9,6 +9,7 @@
  */
 
 import type * as actions_apiKeys from "../actions/apiKeys.js";
+import type * as actions_chatEdit from "../actions/chatEdit.js";
 import type * as actions_collect from "../actions/collect.js";
 import type * as actions_generate from "../actions/generate.js";
 import type * as actions_images from "../actions/images.js";
@@ -35,6 +36,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "actions/apiKeys": typeof actions_apiKeys;
+  "actions/chatEdit": typeof actions_chatEdit;
   "actions/collect": typeof actions_collect;
   "actions/generate": typeof actions_generate;
   "actions/images": typeof actions_images;

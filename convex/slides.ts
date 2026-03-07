@@ -308,12 +308,59 @@ export const applyStyleToAll = mutation({
   },
 });
 
+export const applySlideSnapshots = mutation({
+  args: {
+    projectId: v.id("projects"),
+    snapshots: v.array(v.object({
+      slideId: v.id("slides"),
+      layoutId: v.string(),
+      content: contentValidator,
+      style: styleValidator,
+      clearImage: v.optional(v.boolean()),
+      image: v.optional(imageValidator),
+      overlays: v.array(overlayValidator),
+    })),
+  },
+  handler: async (ctx, { projectId, snapshots }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const project = await ctx.db.get(projectId);
+    if (!project || project.userId !== userId) throw new Error("Not found");
+
+    for (const snapshot of snapshots) {
+      const slide = await ctx.db.get(snapshot.slideId);
+      if (!slide || slide.projectId !== projectId) {
+        throw new Error("Not found");
+      }
+
+      await ctx.db.patch(snapshot.slideId, {
+        content: snapshot.content,
+        style: snapshot.style,
+        layoutId: snapshot.layoutId,
+        image: snapshot.clearImage ? undefined : snapshot.image,
+        overlays: snapshot.overlays,
+      });
+    }
+  },
+});
+
 // ─── Internal (for actions) ─────────────────────────────────
 
 export const getSlideInternal = internalQuery({
   args: { slideId: v.id("slides") },
   handler: async (ctx, { slideId }) => {
     return ctx.db.get(slideId);
+  },
+});
+
+export const getSlidesInternal = internalQuery({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    return ctx.db
+      .query("slides")
+      .withIndex("by_projectId_order", (q) => q.eq("projectId", projectId))
+      .collect();
   },
 });
 

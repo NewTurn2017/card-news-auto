@@ -1,5 +1,5 @@
 "use node";
-import { action } from "../_generated/server";
+import { action, type ActionCtx } from "../_generated/server";
 import { ConvexError, v } from "convex/values";
 import { GoogleGenAI } from "@google/genai";
 import { internal } from "../_generated/api";
@@ -13,7 +13,7 @@ function isApiKeyInvalidError(err: unknown): boolean {
   return false;
 }
 
-async function getDecryptedApiKey(ctx: { runQuery: Function }) {
+async function getDecryptedApiKey(ctx: Pick<ActionCtx, "runQuery">) {
   const profile = await ctx.runQuery(internal.userProfiles.getProfileByAuth);
   if (profile?.geminiApiKey) {
     // Encrypted format: "iv:authTag:encrypted"

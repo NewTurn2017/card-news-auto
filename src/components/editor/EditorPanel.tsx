@@ -27,16 +27,45 @@ import type { SlideContent, SlideImage, SlideStyle } from "@/types";
 import { colorPresets } from "@/data/presets";
 import type { AutosaveStatus } from "@/lib/autosave";
 import { STYLE_AUTOSAVE_DELAY_MS } from "@/lib/autosave";
+import { toEditableSnapshotImage, type EditableSlideImage } from "@/lib/editorHistory";
+
+interface EditorPanelSlide {
+  _id: Id<"slides">;
+  layoutId: string;
+  content?: SlideContent;
+  style?: SlideStyle;
+  image?: EditableSlideImage;
+}
+
+interface EditorPanelPreset {
+  _id: Id<"stylePresets">;
+  name: string;
+  style: SlideStyle;
+  layoutId?: string;
+  overlays?: Array<{
+    assetId: string;
+    x: number;
+    y: number;
+    width: number;
+    opacity: number;
+  }>;
+  image?: EditableSlideImage;
+}
 
 interface EditorPanelProps {
   projectId: Id<"projects">;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  slides: any[];
+  slides: EditorPanelSlide[];
   currentSlideIndex: number;
   onSlideChange: (index: number) => void;
   localContent: SlideContent;
   onContentChange: (content: SlideContent) => void;
-  onLocalStyleChange?: (style: SlideStyle | null) => void;
+  currentLayoutId?: string;
+  onStyleChange?: (style: SlideStyle) => void;
+  onLayoutChange?: (layoutId: string) => void;
+  onApplyStyleToAll?: () => void;
+  onImproveContent?: (instruction: string) => Promise<void> | void;
+  onLoadPreset?: (preset: EditorPanelPreset) => Promise<void> | void;
+  onResetTextPositions?: () => void;
   overlays?: Array<{ assetId: string; x: number; y: number; width: number; opacity: number }>;
   onAddOverlay?: (assetId: Id<"userAssets">) => void;
   onUpdateOverlay?: (index: number, partial: Partial<{ x: number; y: number; width: number; opacity: number }>) => void;
@@ -47,6 +76,8 @@ interface EditorPanelProps {
   localImage?: SlideImage;
   onImageChange?: (image: SlideImage | undefined) => void;
   onStyleAutosaveStatusChange?: (status: AutosaveStatus) => void;
+  onHistoryInvalidate?: () => void;
+  isInteractionLocked?: boolean;
 }
 
 const ALL_SECTION_IDS = ["style", "layout", "image", "assets"];
@@ -112,7 +143,13 @@ export default function EditorPanel({
   onSlideChange,
   localContent,
   onContentChange,
-  onLocalStyleChange,
+  currentLayoutId,
+  onStyleChange,
+  onLayoutChange,
+  onApplyStyleToAll,
+  onImproveContent,
+  onLoadPreset,
+  onResetTextPositions,
   overlays,
   onAddOverlay,
   onUpdateOverlay,
@@ -123,6 +160,8 @@ export default function EditorPanel({
   localImage,
   onImageChange,
   onStyleAutosaveStatusChange,
+  onHistoryInvalidate,
+  isInteractionLocked = false,
 }: EditorPanelProps) {
   // All sections open by default
   const [openSections, setOpenSections] = useState<Set<string>>(
@@ -215,17 +254,11 @@ export default function EditorPanel({
   const prevSlide = () => goToSlide(currentSlideIndex - 1);
 
   const handleImageChange = async (image: SlideImage | undefined) => {
+    const nextImage = toEditableSnapshotImage(image, slide.image);
+
     await updateImageMutation({
       slideId,
-      image: image
-        ? {
-            externalUrl: image.url,
-            opacity: image.opacity,
-            position: image.position,
-            size: image.size,
-            fit: image.fit,
-          }
-        : undefined,
+      image: nextImage,
     });
   };
 
@@ -233,7 +266,11 @@ export default function EditorPanel({
   const handleStyleChange = (styleOverride: Partial<SlideStyle>) => {
     const newStyle: SlideStyle = { ...currentStyle, ...styleOverride };
     setLocalStyle(newStyle);
-    onLocalStyleChange?.(newStyle);
+    if (onStyleChange) {
+      onStyleChange(newStyle);
+      return;
+    }
+
     onStyleAutosaveStatusChange?.("saving");
     stylePendingRef.current = true;
 
@@ -278,6 +315,11 @@ export default function EditorPanel({
   };
 
   const handleSetLayout = async (layoutId: string) => {
+    if (onLayoutChange) {
+      onLayoutChange(layoutId);
+      return;
+    }
+
     await updateLayoutMutation({ slideId, layoutId });
   };
 
@@ -291,11 +333,13 @@ export default function EditorPanel({
       content: { title: "새 슬라이드" },
       style: lastSlide?.style ?? DEFAULT_STYLE,
     });
+    onHistoryInvalidate?.();
   };
 
   const handleDeleteSlide = async () => {
     if (slides.length <= 1) return;
     await deleteSlideMutation({ slideId });
+    onHistoryInvalidate?.();
     if (currentSlideIndex >= slides.length - 1) {
       onSlideChange(slides.length - 2);
     }
@@ -304,6 +348,12 @@ export default function EditorPanel({
   const handleImprove = async (instruction: string) => {
     setIsImproving(true);
     try {
+      if (onImproveContent) {
+        await onImproveContent(instruction);
+        setShowImproveModal(false);
+        return;
+      }
+
       const improved = await improveSlideAction({
         slideId,
         instruction,
@@ -330,10 +380,16 @@ export default function EditorPanel({
   };
 
   const handleApplyToAll = async () => {
+    if (onApplyStyleToAll) {
+      await onApplyStyleToAll();
+      showToast(`전체 ${slides.length}장에 스타일 적용 완료`);
+      return;
+    }
+
     await applyStyleToAllMutation({
       projectId,
       style: currentStyle,
-      layoutId: slide.layoutId,
+      layoutId: currentLayoutId ?? slide.layoutId,
       overlays: overlays as Parameters<typeof applyStyleToAllMutation>[0]["overlays"],
       image: slide.image as Parameters<typeof applyStyleToAllMutation>[0]["image"],
     });
@@ -347,7 +403,7 @@ export default function EditorPanel({
     await savePresetMutation({
       name,
       style: currentStyle,
-      layoutId: slide.layoutId,
+      layoutId: currentLayoutId ?? slide.layoutId,
       overlays: overlays as Parameters<typeof savePresetMutation>[0]["overlays"],
       image: slide.image as Parameters<typeof savePresetMutation>[0]["image"],
     });
@@ -356,17 +412,29 @@ export default function EditorPanel({
     showToast(isOverwrite ? `"${name}" 프리셋 덮어쓰기 완료` : `"${name}" 프리셋 저장 완료`);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleLoadPreset = async (preset: any) => {
+  const handleLoadPreset = async (preset: EditorPanelPreset) => {
+    if (onLoadPreset) {
+      await onLoadPreset(preset);
+      setShowPresetLoad(false);
+      showToast(`"${preset.name}" 프리셋 적용 완료`);
+      return;
+    }
+
     handleStyleChange(preset.style);
     if (preset.layoutId) {
       await updateLayoutMutation({ slideId, layoutId: preset.layoutId });
     }
     if (preset.overlays) {
-      await updateOverlaysMutation({ slideId, overlays: preset.overlays });
+      await updateOverlaysMutation({
+        slideId,
+        overlays: preset.overlays as Parameters<typeof updateOverlaysMutation>[0]["overlays"],
+      });
     }
     if (preset.image !== undefined) {
-      await updateImageMutation({ slideId, image: preset.image ?? undefined });
+      await updateImageMutation({
+        slideId,
+        image: (preset.image ?? undefined) as Parameters<typeof updateImageMutation>[0]["image"],
+      });
     }
     setShowPresetLoad(false);
     showToast(`"${preset.name}" 프리셋 적용 완료`);
@@ -399,7 +467,12 @@ export default function EditorPanel({
   const colorPreset = matchedPreset;
 
   return (
-    <div className="relative flex h-full flex-col">
+    <div
+      aria-busy={isInteractionLocked}
+      className={`relative flex h-full flex-col ${
+        isInteractionLocked ? "pointer-events-none opacity-70" : ""
+      }`}
+    >
       {/* Toast */}
       {toast && (
         <div className="pointer-events-none absolute inset-x-0 top-4 z-50 flex justify-center">
@@ -560,7 +633,7 @@ export default function EditorPanel({
             {section.id === "layout" && (
               <div>
                 <LayoutSelector
-                  selected={slide.layoutId}
+                  selected={currentLayoutId ?? slide.layoutId}
                   onChange={(layoutId) => {
                     handleSetLayout(layoutId);
                   }}
@@ -569,10 +642,15 @@ export default function EditorPanel({
                 {currentStyle.textPositions && (
                   <button
                     onClick={() => {
+                      if (onResetTextPositions) {
+                        onResetTextPositions();
+                        return;
+                      }
+
                       const { textPositions, ...rest } = currentStyle;
                       void textPositions;
                       const newStyle: SlideStyle = { ...rest };
-                      onLocalStyleChange?.(newStyle);
+                      onStyleChange?.(newStyle);
                       updateStyleMutation({ slideId, style: newStyle });
                     }}
                     className="mt-2 w-full rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:bg-surface-hover transition-colors"
@@ -631,6 +709,7 @@ export default function EditorPanel({
 
       {/* Improve Modal */}
       <ImproveModal
+        key={`${slideId}-${showImproveModal ? "open" : "closed"}`}
         isOpen={showImproveModal}
         onClose={() => setShowImproveModal(false)}
         onImprove={handleImprove}
