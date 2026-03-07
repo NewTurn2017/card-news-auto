@@ -33,7 +33,7 @@ export default function ExportModal({
     try {
       if (selected === "png") {
         // slideRefs always has one element (the currently rendered slide)
-        const el = slideRefs[0]?.current;
+        const el = slideRefs[currentSlideIndex]?.current;
         if (!el) throw new Error("슬라이드 요소를 찾을 수 없습니다.");
         const paddedIdx = String(currentSlideIndex + 1).padStart(2, "0");
         await exportSlideToPng(el, `${projectTitle}_slide_${paddedIdx}.png`);
