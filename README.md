@@ -14,6 +14,12 @@ pnpm dev
 bun dev
 ```
 
+To run Next.js and Convex together in development:
+
+```bash
+bun run dev:all
+```
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.

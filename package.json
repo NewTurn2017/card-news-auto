@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:all": "bun --bun x mprocs --config mprocs.yaml",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval:gemini-chat-edit": "node --env-file=.env.local scripts/evals/gemini-chat-edit/run.mjs"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",
@@ -38,6 +40,7 @@
     "@types/uuid": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "mprocs": "^0.8.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

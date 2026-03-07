@@ -1,0 +1,7 @@
+procs:
+  next:
+    shell: "bun run dev"
+    autostart: true
+  convex:
+    shell: "bunx convex dev"
+    autostart: true
