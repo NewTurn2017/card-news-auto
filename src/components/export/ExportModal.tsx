@@ -7,7 +7,6 @@ import { exportSlideToPng, exportAllPng, exportPdf } from "@/lib/export-png";
 type ExportFormat = "png" | "zip" | "pdf";
 
 interface ExportModalProps {
-  slideRefs: React.RefObject<HTMLDivElement | null>[];
   allSlideRefs: React.RefObject<(HTMLDivElement | null)[]>;
   projectTitle: string;
   currentSlideIndex: number;
@@ -16,7 +15,6 @@ interface ExportModalProps {
 }
 
 export default function ExportModal({
-  slideRefs,
   allSlideRefs,
   projectTitle,
   currentSlideIndex,
@@ -32,8 +30,7 @@ export default function ExportModal({
     setError(null);
     try {
       if (selected === "png") {
-        // slideRefs always has one element (the currently rendered slide)
-        const el = slideRefs[currentSlideIndex]?.current;
+        const el = (allSlideRefs.current ?? [])[currentSlideIndex] ?? null;
         if (!el) throw new Error("슬라이드 요소를 찾을 수 없습니다.");
         const paddedIdx = String(currentSlideIndex + 1).padStart(2, "0");
         await exportSlideToPng(el, `${projectTitle}_slide_${paddedIdx}.png`);

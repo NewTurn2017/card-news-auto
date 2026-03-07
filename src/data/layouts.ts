@@ -1,4 +1,4 @@
-import type { LayoutTemplate } from "@/types";
+import type { LayoutTemplate, TextAlignment } from "@/types";
 
 export const layouts: LayoutTemplate[] = [
   // Row 1: Top
@@ -102,3 +102,12 @@ export const layouts: LayoutTemplate[] = [
     textAlign: "left",
   },
 ];
+
+export function getLayoutById(layoutId?: string): LayoutTemplate | undefined {
+  const normalizedLayoutId = layoutId?.replace(/^layout-/, "") ?? "center";
+  return layouts.find((layout) => layout.id === normalizedLayoutId);
+}
+
+export function getLayoutTextAlign(layoutId?: string): TextAlignment {
+  return getLayoutById(layoutId)?.textAlign ?? "center";
+}

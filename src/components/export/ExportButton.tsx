@@ -4,7 +4,6 @@ import { useState } from "react";
 import ExportModal from "./ExportModal";
 
 interface ExportButtonProps {
-  slideRefs: React.RefObject<HTMLDivElement | null>[];
   allSlideRefs: React.RefObject<(HTMLDivElement | null)[]>;
   projectTitle: string;
   currentSlideIndex: number;
@@ -12,7 +11,6 @@ interface ExportButtonProps {
 }
 
 export default function ExportButton({
-  slideRefs,
   allSlideRefs,
   projectTitle,
   currentSlideIndex,
@@ -31,7 +29,6 @@ export default function ExportButton({
 
       {showModal && (
         <ExportModal
-          slideRefs={slideRefs}
           allSlideRefs={allSlideRefs}
           projectTitle={projectTitle}
           currentSlideIndex={currentSlideIndex}

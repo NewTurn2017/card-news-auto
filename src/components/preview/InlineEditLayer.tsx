@@ -1,33 +1,32 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import InlineToolbox, { type EditableField } from "./InlineToolbox";
-import type { SlideStyle, SlideContent, TextFieldEffects } from "@/types";
-
-export interface SlideClickInfo {
-  clientX: number;
-  clientY: number;
-  timestamp: number;
-}
+import type { EditableTextField, SlideStyle, SlideContent, TextFieldEffects } from "@/types";
 
 interface InlineEditLayerProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   slideRef: HTMLDivElement | null;
   currentStyle: SlideStyle;
   currentContent: SlideContent;
+  selectedField: EditableTextField | null;
   onStyleChange: (style: Partial<SlideStyle>) => void;
   onFontChange: (fontId: string) => void;
   onContentChange: (content: SlideContent) => void;
-  clickInfo: SlideClickInfo | null;
+  onClose: () => void;
   textEffects?: {
     category?: TextFieldEffects;
     title?: TextFieldEffects;
     subtitle?: TextFieldEffects;
     body?: TextFieldEffects;
   };
-  onTextEffectsChange: (field: string, effects: Partial<TextFieldEffects>) => void;
+  onTextEffectsChange: (field: EditableTextField, effects: Partial<TextFieldEffects>) => void;
   originalContent?: SlideContent;
-  onResetField?: (field: string) => void;
+  onResetField?: (field: EditableTextField) => void;
+  currentPosition?: { x: number; y: number } | null;
+  onNudgePosition?: (field: EditableTextField, dx: number, dy: number) => void;
+  onCenterPosition?: (field: EditableTextField, axis: "horizontal" | "vertical") => void;
+  onResetPosition?: (field: EditableTextField) => void;
 }
 
 interface HighlightRect {
@@ -42,21 +41,24 @@ export default function InlineEditLayer({
   slideRef,
   currentStyle,
   currentContent,
+  selectedField,
   onStyleChange,
   onFontChange,
   onContentChange,
-  clickInfo,
+  onClose,
   textEffects,
   onTextEffectsChange,
   originalContent,
   onResetField,
+  currentPosition,
+  onNudgePosition,
+  onCenterPosition,
+  onResetPosition,
 }: InlineEditLayerProps) {
-  const [selectedField, setSelectedField] = useState<EditableField | null>(null);
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
-  // anchorTop in viewport coordinates for fixed positioning
   const [anchorTopViewport, setAnchorTopViewport] = useState(0);
+  const [containerRight, setContainerRight] = useState(0);
 
-  // Calculate element position relative to container (for highlight)
   const getRelativeRect = useCallback(
     (element: Element): HighlightRect | null => {
       const container = containerRef.current;
@@ -75,7 +77,6 @@ export default function InlineEditLayer({
     [containerRef]
   );
 
-  // Update highlight when selected field changes or content/style updates
   const updateHighlight = useCallback(() => {
     if (!selectedField || !slideRef) {
       setHighlightRect(null);
@@ -84,65 +85,44 @@ export default function InlineEditLayer({
 
     const element = slideRef.querySelector(`[data-field="${selectedField}"]`);
     if (!element) {
-      setSelectedField(null);
       setHighlightRect(null);
       return;
     }
 
     const rect = getRelativeRect(element);
-    if (rect) {
-      setHighlightRect(rect);
-      // Use container vertical center for fixed toolbox positioning
-      const container = containerRef.current;
-      if (container) {
-        const containerBounds = container.getBoundingClientRect();
-        setAnchorTopViewport(containerBounds.top + containerBounds.height / 2);
-      }
-    }
-  }, [selectedField, slideRef, getRelativeRect]);
-
-  useEffect(() => {
-    updateHighlight();
-  }, [updateHighlight, currentContent, currentStyle]);
-
-  // Close on slide change — clear both field and rect immediately
-  useEffect(() => {
-    setSelectedField(null);
-    setHighlightRect(null);
-  }, [slideRef]);
-
-  // React to click events from SwipeCarousel
-  useEffect(() => {
-    if (!clickInfo || !slideRef) return;
-    const realTarget = document.elementFromPoint(
-      clickInfo.clientX,
-      clickInfo.clientY
-    ) as HTMLElement | null;
-    if (!realTarget) {
-      setSelectedField(null);
+    if (!rect) {
+      setHighlightRect(null);
       return;
     }
-    const fieldEl = realTarget.closest("[data-field]");
-    if (fieldEl) {
-      setSelectedField(fieldEl.getAttribute("data-field") as EditableField);
-    } else {
-      setSelectedField(null);
+
+    setHighlightRect(rect);
+
+    const container = containerRef.current;
+    if (container) {
+      const containerBounds = container.getBoundingClientRect();
+      setAnchorTopViewport(containerBounds.top + containerBounds.height / 2);
+      setContainerRight(containerBounds.right);
     }
-  }, [clickInfo, slideRef]);
+  }, [containerRef, getRelativeRect, selectedField, slideRef]);
 
-  const handleClose = useCallback(() => {
-    setSelectedField(null);
-  }, []);
+  useEffect(() => {
+    const rafId = window.requestAnimationFrame(() => {
+      updateHighlight();
+    });
 
-  // Calculate toolbox left position: right edge of phone mockup container
-  const container = containerRef.current;
-  const containerRight = container
-    ? container.getBoundingClientRect().right
-    : 0;
+    return () => window.cancelAnimationFrame(rafId);
+  }, [updateHighlight, currentContent, currentStyle]);
+
+  useEffect(() => {
+    const rafId = window.requestAnimationFrame(() => {
+      setHighlightRect(null);
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [slideRef]);
 
   return (
     <>
-      {/* Highlight overlay */}
       {highlightRect && selectedField && (
         <div
           className="pointer-events-none absolute z-20"
@@ -159,10 +139,9 @@ export default function InlineEditLayer({
         />
       )}
 
-      {/* Toolbox — fixed positioned to the right of the phone mockup */}
       {selectedField && containerRight > 0 && (
         <InlineToolbox
-          field={selectedField}
+          field={selectedField as EditableField}
           anchorTop={anchorTopViewport}
           anchorLeft={containerRight + 12}
           style={currentStyle}
@@ -170,11 +149,15 @@ export default function InlineEditLayer({
           onStyleChange={onStyleChange}
           onFontChange={onFontChange}
           onContentChange={onContentChange}
-          onClose={handleClose}
+          onClose={onClose}
           textEffects={textEffects}
           onTextEffectsChange={onTextEffectsChange}
           originalContent={originalContent}
           onResetField={onResetField}
+          position={currentPosition ?? undefined}
+          onNudgePosition={onNudgePosition}
+          onCenterPosition={onCenterPosition}
+          onResetPosition={onResetPosition}
         />
       )}
     </>

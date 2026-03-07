@@ -1,0 +1,3 @@
+export const CONTENT_AUTOSAVE_DELAY_MS = 1200;
+export const STYLE_AUTOSAVE_DELAY_MS = 800;
+export const ASSET_AUTOSAVE_DELAY_MS = 800;

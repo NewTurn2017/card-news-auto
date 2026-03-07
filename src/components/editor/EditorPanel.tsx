@@ -25,6 +25,7 @@ import MyAssetsPanel from "./MyAssetsPanel";
 import OverlayControls from "./OverlayControls";
 import type { SlideContent, SlideImage, SlideStyle } from "@/types";
 import { colorPresets } from "@/data/presets";
+import { STYLE_AUTOSAVE_DELAY_MS } from "@/lib/autosave";
 
 interface EditorPanelProps {
   projectId: Id<"projects">;
@@ -155,13 +156,15 @@ export default function EditorPanel({
   const removePresetMutation = useMutation(api.stylePresets.remove);
 
   const slide = slides[currentSlideIndex];
+  const activeSlideId = slide?._id;
+  const slideStyle = slide?.style;
 
   // Sync localStyle from server when no pending edits
   useEffect(() => {
-    if (!stylePendingRef.current && slide) {
-      setLocalStyle(slide.style ?? DEFAULT_STYLE);
+    if (!stylePendingRef.current) {
+      setLocalStyle(slideStyle ?? DEFAULT_STYLE);
     }
-  }, [slide?.style, slide?._id]);
+  }, [activeSlideId, slideStyle]);
 
   // Reset localStyle and close modal on slide change
   useEffect(() => {
@@ -192,7 +195,7 @@ export default function EditorPanel({
   if (!slide) return null;
 
   const slideId: Id<"slides"> = slide._id;
-  const currentStyle: SlideStyle = localStyle ?? slide.style ?? DEFAULT_STYLE;
+  const currentStyle: SlideStyle = localStyle ?? slideStyle ?? DEFAULT_STYLE;
 
   const goToSlide = (i: number) =>
     onSlideChange(Math.max(0, Math.min(i, slides.length - 1)));
@@ -224,7 +227,7 @@ export default function EditorPanel({
     if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
     styleTimerRef.current = setTimeout(() => {
       flushStyleChange(newStyle, slideId);
-    }, 300);
+    }, STYLE_AUTOSAVE_DELAY_MS);
   };
 
   // Color preset change - preserves font sizes

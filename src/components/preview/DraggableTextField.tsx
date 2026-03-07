@@ -1,41 +1,51 @@
 "use client";
 
 import { useRef, useCallback } from "react";
+import type { CanvasItemId } from "@/lib/editorGeometry";
+import type { EditableTextField } from "@/types";
 
 interface DraggableTextFieldProps {
-  field: string;
+  field: EditableTextField;
+  itemId: CanvasItemId;
   children: React.ReactNode;
-  offsetX: number;  // pixel offset at 1080-base resolution
-  offsetY: number;  // pixel offset at 1350-base resolution
-  scale?: number;   // current render scale (cardWidth / 1080)
+  offsetX: number;
+  offsetY: number;
+  widthMode?: "fit-content" | "full";
+  contentAlign?: React.CSSProperties["textAlign"];
   isInteractive: boolean;
   isSelected: boolean;
-  onSelect: () => void;
-  onMove: (offsetX: number, offsetY: number) => void;
-  onDeselect: () => void;
-  onDoubleClick?: (clientX: number, clientY: number) => void;
+  onDragStart: (
+    field: EditableTextField,
+    options: { clientX: number; clientY: number; additive: boolean }
+  ) => void;
+  onDragMove: (
+    field: EditableTextField,
+    options: { clientX: number; clientY: number; bypassSnap: boolean }
+  ) => void;
+  onDragEnd: (field: EditableTextField) => void;
+  onDoubleClick?: (field: EditableTextField) => void;
 }
 
 const DRAG_THRESHOLD = 5;
 
 export default function DraggableTextField({
   field,
+  itemId,
   children,
   offsetX,
   offsetY,
-  scale = 1,
+  widthMode = "fit-content",
+  contentAlign,
   isInteractive,
   isSelected,
-  onSelect,
-  onMove,
-  onDeselect,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
   onDoubleClick,
 }: DraggableTextFieldProps) {
   const isDragging = useRef(false);
   const hasDragged = useRef(false);
-  const dragStart = useRef({ x: 0, y: 0, origX: 0, origY: 0 });
-
-  void onDeselect;
+  const dragStart = useRef({ x: 0, y: 0 });
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -45,11 +55,15 @@ export default function DraggableTextField({
 
       isDragging.current = true;
       hasDragged.current = false;
-      dragStart.current = { x: e.clientX, y: e.clientY, origX: offsetX, origY: offsetY };
-      onSelect();
+      dragStart.current = { x: e.clientX, y: e.clientY };
+      onDragStart(field, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        additive: e.shiftKey || e.metaKey || e.ctrlKey,
+      });
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [isInteractive, offsetX, offsetY, onSelect]
+    [field, isInteractive, onDragStart]
   );
 
   const handlePointerMove = useCallback(
@@ -65,15 +79,13 @@ export default function DraggableTextField({
 
       if (!hasDragged.current) return;
 
-      // Convert screen pixels to base-resolution pixels
-      const baseDx = dx / scale;
-      const baseDy = dy / scale;
-
-      const newX = Math.round(dragStart.current.origX + baseDx);
-      const newY = Math.round(dragStart.current.origY + baseDy);
-      onMove(newX, newY);
+      onDragMove(field, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        bypassSnap: e.altKey,
+      });
     },
-    [scale, onMove]
+    [field, onDragMove]
   );
 
   const handlePointerUp = useCallback(
@@ -82,8 +94,9 @@ export default function DraggableTextField({
       isDragging.current = false;
       hasDragged.current = false;
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      onDragEnd(field);
     },
-    []
+    [field, onDragEnd]
   );
 
   const hasOffset = offsetX !== 0 || offsetY !== 0;
@@ -91,15 +104,23 @@ export default function DraggableTextField({
   return (
     <div
       className={`relative ${isInteractive ? "cursor-move" : ""}`}
-      style={{ width: "fit-content", touchAction: isInteractive ? "none" : "auto", ...(hasOffset ? { transform: `translate(${offsetX}px, ${offsetY}px)` } : {}) }}
+      style={{
+        width: widthMode === "full" ? "100%" : "fit-content",
+        maxWidth: "100%",
+        textAlign: contentAlign,
+        touchAction: isInteractive ? "none" : "auto",
+        ...(hasOffset ? { transform: `translate(${offsetX}px, ${offsetY}px)` } : {}),
+      }}
       data-field={field}
+      data-canvas-item-id={itemId}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onDoubleClick={(e) => {
+        e.stopPropagation();
         if (isInteractive && onDoubleClick) {
-          onDoubleClick(e.clientX, e.clientY);
+          onDoubleClick(field);
         }
       }}
     >

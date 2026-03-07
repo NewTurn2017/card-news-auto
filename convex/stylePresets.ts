@@ -55,6 +55,12 @@ const styleValidator = v.object({
     subtitle: v.optional(v.object({ x: v.number(), y: v.number() })),
     body: v.optional(v.object({ x: v.number(), y: v.number() })),
   })),
+  textAlignments: v.optional(v.object({
+    category: v.optional(v.union(v.literal("left"), v.literal("center"), v.literal("right"))),
+    title: v.optional(v.union(v.literal("left"), v.literal("center"), v.literal("right"))),
+    subtitle: v.optional(v.union(v.literal("left"), v.literal("center"), v.literal("right"))),
+    body: v.optional(v.union(v.literal("left"), v.literal("center"), v.literal("right"))),
+  })),
 });
 
 export const list = query({

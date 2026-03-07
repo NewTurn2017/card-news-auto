@@ -3,6 +3,8 @@
 import { useRef, useEffect, useCallback } from "react";
 import CardSlideRenderer from "./CardSlideRenderer";
 import type { CardSlide } from "@/types";
+import type { BaseRect, CanvasItemId, LayoutPaddingGuides } from "@/lib/editorGeometry";
+import type { SnapGuide } from "@/lib/editorSnap";
 
 interface SwipeCarouselProps {
   slides: CardSlide[];
@@ -16,17 +18,44 @@ interface SwipeCarouselProps {
   // Overlay interaction props (passed through to CardSlideRenderer)
   resolvedOverlayUrls?: Record<string, { url: string; name: string }>;
   selectedOverlayIndex?: number;
+  selectedTextField?: "category" | "title" | "subtitle" | "body";
+  multiSelectedRects?: BaseRect[];
+  selectionBounds?: BaseRect | null;
+  marqueeRect?: BaseRect | null;
+  snapGuides?: SnapGuide[];
+  showGuideOverlay?: boolean;
+  guidePadding?: LayoutPaddingGuides;
   isInteractive?: boolean;
-  onOverlaySelect?: (index: number) => void;
-  onOverlayMove?: (index: number, x: number, y: number) => void;
+  allowSwipe?: boolean;
+  allowCanvasSelection?: boolean;
+  onCanvasDragStart?: (options: {
+    clientX: number;
+    clientY: number;
+    additive: boolean;
+  }) => void;
+  onCanvasDragMove?: (options: { clientX: number; clientY: number }) => void;
+  onCanvasDragEnd?: (options: { clientX: number; clientY: number }) => void;
+  onOverlayDragStart?: (
+    itemId: CanvasItemId,
+    options: { clientX: number; clientY: number; additive: boolean }
+  ) => void;
+  onOverlayDragMove?: (
+    itemId: CanvasItemId,
+    options: { clientX: number; clientY: number; bypassSnap: boolean }
+  ) => void;
+  onOverlayDragEnd?: (itemId: CanvasItemId) => void;
   onOverlayResize?: (index: number, width: number) => void;
-  onOverlayDeselect?: () => void;
   onSwipeStart?: () => void;
-  selectedTextField?: string;
-  onTextFieldSelect?: (field: string) => void;
-  onTextFieldMove?: (field: string, x: number, y: number) => void;
-  onTextFieldDeselect?: () => void;
-  onTextFieldDoubleClick?: (clientX: number, clientY: number) => void;
+  onTextFieldDragStart?: (
+    field: "category" | "title" | "subtitle" | "body",
+    options: { clientX: number; clientY: number; additive: boolean }
+  ) => void;
+  onTextFieldDragMove?: (
+    field: "category" | "title" | "subtitle" | "body",
+    options: { clientX: number; clientY: number; bypassSnap: boolean }
+  ) => void;
+  onTextFieldDragEnd?: (field: "category" | "title" | "subtitle" | "body") => void;
+  onTextFieldDoubleClick?: (field: "category" | "title" | "subtitle" | "body") => void;
 }
 
 // Spring physics constants
@@ -46,16 +75,27 @@ export default function SwipeCarousel({
   onSlideClick,
   resolvedOverlayUrls,
   selectedOverlayIndex,
-  isInteractive,
-  onOverlaySelect,
-  onOverlayMove,
-  onOverlayResize,
-  onOverlayDeselect,
-  onSwipeStart,
   selectedTextField,
-  onTextFieldSelect,
-  onTextFieldMove,
-  onTextFieldDeselect,
+  multiSelectedRects,
+  selectionBounds,
+  marqueeRect,
+  snapGuides,
+  showGuideOverlay,
+  guidePadding,
+  isInteractive,
+  allowSwipe = true,
+  allowCanvasSelection,
+  onCanvasDragStart,
+  onCanvasDragMove,
+  onCanvasDragEnd,
+  onOverlayDragStart,
+  onOverlayDragMove,
+  onOverlayDragEnd,
+  onOverlayResize,
+  onSwipeStart,
+  onTextFieldDragStart,
+  onTextFieldDragMove,
+  onTextFieldDragEnd,
   onTextFieldDoubleClick,
 }: SwipeCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -176,6 +216,7 @@ export default function SwipeCarousel({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (!allowSwipe) return;
       if (e.button !== 0) return;
 
       pointerDown.current = true;
@@ -192,11 +233,12 @@ export default function SwipeCarousel({
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       ensureAnimating();
     },
-    [ensureAnimating]
+    [allowSwipe, ensureAnimating]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
+      if (!allowSwipe) return;
       if (!pointerDown.current) return;
 
       const dx = e.clientX - startX.current;
@@ -232,11 +274,12 @@ export default function SwipeCarousel({
 
       offsetX.current = newOffset;
     },
-    [cardWidth, maxIndex, onSwipeStart]
+    [allowSwipe, cardWidth, maxIndex, onSwipeStart]
   );
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
+      if (!allowSwipe) return;
       if (!pointerDown.current) return;
       pointerDown.current = false;
 
@@ -276,7 +319,7 @@ export default function SwipeCarousel({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cardWidth, currentIndex, onIndexChange, snapTo, maxIndex, onSlideClick]
+    [allowSwipe, cardWidth, currentIndex, onIndexChange, snapTo, maxIndex, onSlideClick]
   );
 
   return (
@@ -318,17 +361,27 @@ export default function SwipeCarousel({
               }}
               slide={slide}
               scale={scale}
-              resolvedOverlayUrls={resolvedOverlayUrls}
+              resolvedOverlayUrls={i === currentIndex ? resolvedOverlayUrls : undefined}
               selectedOverlayIndex={i === currentIndex ? selectedOverlayIndex : undefined}
-              isInteractive={i === currentIndex ? isInteractive : false}
-              onOverlaySelect={i === currentIndex ? onOverlaySelect : undefined}
-              onOverlayMove={i === currentIndex ? onOverlayMove : undefined}
-              onOverlayResize={i === currentIndex ? onOverlayResize : undefined}
-              onOverlayDeselect={i === currentIndex ? onOverlayDeselect : undefined}
               selectedTextField={i === currentIndex ? selectedTextField : undefined}
-              onTextFieldSelect={i === currentIndex ? onTextFieldSelect : undefined}
-              onTextFieldMove={i === currentIndex ? onTextFieldMove : undefined}
-              onTextFieldDeselect={i === currentIndex ? onTextFieldDeselect : undefined}
+              multiSelectedRects={i === currentIndex ? multiSelectedRects : undefined}
+              selectionBounds={i === currentIndex ? selectionBounds : null}
+              marqueeRect={i === currentIndex ? marqueeRect : null}
+              snapGuides={i === currentIndex ? snapGuides : undefined}
+              showGuideOverlay={i === currentIndex ? showGuideOverlay : false}
+              guidePadding={i === currentIndex ? guidePadding : undefined}
+              isInteractive={i === currentIndex ? isInteractive : false}
+              allowCanvasSelection={i === currentIndex ? allowCanvasSelection : false}
+              onCanvasDragStart={i === currentIndex ? onCanvasDragStart : undefined}
+              onCanvasDragMove={i === currentIndex ? onCanvasDragMove : undefined}
+              onCanvasDragEnd={i === currentIndex ? onCanvasDragEnd : undefined}
+              onOverlayDragStart={i === currentIndex ? onOverlayDragStart : undefined}
+              onOverlayDragMove={i === currentIndex ? onOverlayDragMove : undefined}
+              onOverlayDragEnd={i === currentIndex ? onOverlayDragEnd : undefined}
+              onOverlayResize={i === currentIndex ? onOverlayResize : undefined}
+              onTextFieldDragStart={i === currentIndex ? onTextFieldDragStart : undefined}
+              onTextFieldDragMove={i === currentIndex ? onTextFieldDragMove : undefined}
+              onTextFieldDragEnd={i === currentIndex ? onTextFieldDragEnd : undefined}
               onTextFieldDoubleClick={i === currentIndex ? onTextFieldDoubleClick : undefined}
             />
           </div>

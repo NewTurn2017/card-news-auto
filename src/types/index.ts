@@ -82,11 +82,21 @@ export interface TextPosition {
   y: number;
 }
 
+export type EditableTextField = "category" | "title" | "subtitle" | "body";
+export type TextAlignment = "left" | "center" | "right";
+
 export interface TextPositions {
   category?: TextPosition;
   title?: TextPosition;
   subtitle?: TextPosition;
   body?: TextPosition;
+}
+
+export interface TextAlignments {
+  category?: TextAlignment;
+  title?: TextAlignment;
+  subtitle?: TextAlignment;
+  body?: TextAlignment;
 }
 
 export interface SlideStyle {
@@ -120,6 +130,7 @@ export interface SlideStyle {
   };
   freeformMode?: boolean;
   textPositions?: TextPositions;
+  textAlignments?: TextAlignments;
 }
 
 export interface TextFieldEffects {

@@ -1,8 +1,11 @@
 "use client";
 
 import { useRef, useCallback } from "react";
+import Image from "next/image";
+import type { CanvasItemId } from "@/lib/editorGeometry";
 
 interface DraggableOverlayProps {
+  itemId: CanvasItemId;
   url: string;
   name: string;
   x: number;
@@ -11,10 +14,16 @@ interface DraggableOverlayProps {
   opacity: number;
   isSelected: boolean;
   isInteractive: boolean;
-  onSelect: () => void;
-  onMove: (x: number, y: number) => void;
+  onDragStart: (
+    itemId: CanvasItemId,
+    options: { clientX: number; clientY: number; additive: boolean }
+  ) => void;
+  onDragMove: (
+    itemId: CanvasItemId,
+    options: { clientX: number; clientY: number; bypassSnap: boolean }
+  ) => void;
+  onDragEnd: (itemId: CanvasItemId) => void;
   onResize: (width: number) => void;
-  onDeselect: () => void;
 }
 
 const CORNER_POSITIONS: Record<string, string> = {
@@ -25,6 +34,7 @@ const CORNER_POSITIONS: Record<string, string> = {
 };
 
 export default function DraggableOverlay({
+  itemId,
   url,
   name,
   x,
@@ -33,15 +43,14 @@ export default function DraggableOverlay({
   opacity,
   isSelected,
   isInteractive,
-  onSelect,
-  onMove,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
   onResize,
-  onDeselect,
 }: DraggableOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const isResizing = useRef(false);
-  const dragStart = useRef({ x: 0, y: 0, origX: 0, origY: 0 });
 
   const getParentRect = useCallback(() => {
     return overlayRef.current?.parentElement?.getBoundingClientRect();
@@ -54,27 +63,26 @@ export default function DraggableOverlay({
       e.preventDefault();
 
       isDragging.current = true;
-      dragStart.current = { x: e.clientX, y: e.clientY, origX: x, origY: y };
-      onSelect();
+      onDragStart(itemId, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        additive: e.shiftKey || e.metaKey || e.ctrlKey,
+      });
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [isInteractive, x, y, onSelect]
+    [isInteractive, itemId, onDragStart]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (!isDragging.current) return;
-      const parentRect = getParentRect();
-      if (!parentRect) return;
-
-      const dx = ((e.clientX - dragStart.current.x) / parentRect.width) * 100;
-      const dy = ((e.clientY - dragStart.current.y) / parentRect.height) * 100;
-
-      const newX = Math.max(0, Math.min(100, dragStart.current.origX + dx));
-      const newY = Math.max(0, Math.min(100, dragStart.current.origY + dy));
-      onMove(Math.round(newX), Math.round(newY));
+      onDragMove(itemId, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        bypassSnap: e.altKey,
+      });
     },
-    [getParentRect, onMove]
+    [itemId, onDragMove]
   );
 
   const handlePointerUp = useCallback(
@@ -82,8 +90,9 @@ export default function DraggableOverlay({
       if (!isDragging.current) return;
       isDragging.current = false;
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      onDragEnd(itemId);
     },
-    []
+    [itemId, onDragEnd]
   );
 
   const handleResizeStart = useCallback(
@@ -115,11 +124,8 @@ export default function DraggableOverlay({
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
     },
-    [getParentRect, width, onResize]
+    [getParentRect, onResize, width]
   );
-
-  // Click outside deselect: handled by parent
-  void onDeselect;
 
   return (
     <div
@@ -133,19 +139,22 @@ export default function DraggableOverlay({
         transform: "translate(-50%, -50%)",
         touchAction: isInteractive ? "none" : "auto",
       }}
+      data-canvas-item-id={itemId}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
-      <img
+      <Image
         src={url}
         alt={name}
+        width={1200}
+        height={1200}
+        unoptimized
         className="pointer-events-none h-auto w-full"
         draggable={false}
       />
 
-      {/* Selection border + resize handles */}
       {isSelected && isInteractive && (
         <>
           <div className="pointer-events-none absolute inset-0 rounded border-2 border-accent" />
@@ -153,7 +162,7 @@ export default function DraggableOverlay({
             <div
               key={corner}
               className={`absolute h-3 w-3 rounded-full border-2 border-accent bg-white ${className}`}
-              onPointerDown={(e) => handleResizeStart(e, corner)}
+              onPointerDown={(event) => handleResizeStart(event, corner)}
             />
           ))}
         </>

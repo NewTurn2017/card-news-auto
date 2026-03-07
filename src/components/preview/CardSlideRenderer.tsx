@@ -1,12 +1,21 @@
 'use client'
 
-import { forwardRef, useEffect } from 'react'
-import type { CardSlide, TextFieldEffects } from '@/types'
+import { forwardRef, useEffect, useRef, useCallback } from 'react'
+import type { CardSlide, EditableTextField, TextFieldEffects } from '@/types'
 import { getPresetById } from '@/data/presets'
 import { getFontById } from '@/data/fonts'
+import { getLayoutTextAlign } from '@/data/layouts'
 import { sanitizeHtml } from '@/lib/sanitize'
+import type {
+  BaseRect,
+  CanvasItemId,
+  LayoutPaddingGuides,
+} from '@/lib/editorGeometry'
+import { getOverlayItemId, getTextItemId } from '@/lib/editorGeometry'
+import type { SnapGuide } from '@/lib/editorSnap'
 import DraggableOverlay from './DraggableOverlay'
 import DraggableTextField from './DraggableTextField'
+import CanvasSelectionLayer from './CanvasSelectionLayer'
 
 function buildTextEffectStyles(effects?: TextFieldEffects): React.CSSProperties {
   if (!effects) return {};
@@ -49,20 +58,71 @@ interface CardSlideRendererProps {
   scale?: number
   resolvedOverlayUrls?: Record<string, { url: string; name: string }>
   selectedOverlayIndex?: number
+  selectedTextField?: EditableTextField
+  multiSelectedRects?: BaseRect[]
+  selectionBounds?: BaseRect | null
+  marqueeRect?: BaseRect | null
+  snapGuides?: SnapGuide[]
+  showGuideOverlay?: boolean
+  guidePadding?: LayoutPaddingGuides
   isInteractive?: boolean
-  onOverlaySelect?: (index: number) => void
-  onOverlayMove?: (index: number, x: number, y: number) => void
+  allowCanvasSelection?: boolean
+  onCanvasDragStart?: (options: {
+    clientX: number
+    clientY: number
+    additive: boolean
+  }) => void
+  onCanvasDragMove?: (options: { clientX: number; clientY: number }) => void
+  onCanvasDragEnd?: (options: { clientX: number; clientY: number }) => void
+  onOverlayDragStart?: (
+    itemId: CanvasItemId,
+    options: { clientX: number; clientY: number; additive: boolean }
+  ) => void
+  onOverlayDragMove?: (
+    itemId: CanvasItemId,
+    options: { clientX: number; clientY: number; bypassSnap: boolean }
+  ) => void
+  onOverlayDragEnd?: (itemId: CanvasItemId) => void
   onOverlayResize?: (index: number, width: number) => void
-  onOverlayDeselect?: () => void
-  selectedTextField?: string
-  onTextFieldSelect?: (field: string) => void
-  onTextFieldMove?: (field: string, x: number, y: number) => void
-  onTextFieldDeselect?: () => void
-  onTextFieldDoubleClick?: (clientX: number, clientY: number) => void
+  onTextFieldDragStart?: (
+    field: EditableTextField,
+    options: { clientX: number; clientY: number; additive: boolean }
+  ) => void
+  onTextFieldDragMove?: (
+    field: EditableTextField,
+    options: { clientX: number; clientY: number; bypassSnap: boolean }
+  ) => void
+  onTextFieldDragEnd?: (field: EditableTextField) => void
+  onTextFieldDoubleClick?: (field: EditableTextField) => void
 }
 
 const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
-  ({ slide, scale, resolvedOverlayUrls, selectedOverlayIndex, isInteractive, onOverlaySelect, onOverlayMove, onOverlayResize, onOverlayDeselect, selectedTextField, onTextFieldSelect, onTextFieldMove, onTextFieldDeselect, onTextFieldDoubleClick }, ref) => {
+  ({
+    slide,
+    scale,
+    resolvedOverlayUrls,
+    selectedOverlayIndex,
+    selectedTextField,
+    multiSelectedRects = [],
+    selectionBounds = null,
+    marqueeRect = null,
+    snapGuides = [],
+    showGuideOverlay = false,
+    guidePadding,
+    isInteractive,
+    allowCanvasSelection,
+    onCanvasDragStart,
+    onCanvasDragMove,
+    onCanvasDragEnd,
+    onOverlayDragStart,
+    onOverlayDragMove,
+    onOverlayDragEnd,
+    onOverlayResize,
+    onTextFieldDragStart,
+    onTextFieldDragMove,
+    onTextFieldDragEnd,
+    onTextFieldDoubleClick,
+  }, ref) => {
     const preset = getPresetById(slide.colorPreset)
     const font = getFontById(slide.fontFamily ?? 'pretendard')
 
@@ -121,11 +181,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
     const isSplitLayout = layoutId === 'split'
     const textEffects = slide.style?.textEffects
     const tp = slide.style?.textPositions
+    const defaultTextAlign = getLayoutTextAlign(layoutId)
+    const resolveTextAlign = (field: EditableTextField): React.CSSProperties['textAlign'] =>
+      slide.style?.textAlignments?.[field] ?? defaultTextAlign
 
     // Helper to build a text style for category
     const categoryStyle: React.CSSProperties = {
       color: slide.style?.categoryColor ?? accentColor,
       ...(slide.style?.categorySize ? { fontSize: `${slide.style.categorySize}px` } : {}),
+      textAlign: resolveTextAlign('category'),
       ...buildTextEffectStyles(textEffects?.category),
     }
     const titleStyle: React.CSSProperties = {
@@ -133,6 +197,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
       ...(slide.style?.titleSize ? { fontSize: `${slide.style.titleSize}px` } : {}),
       ...(slide.style?.titleLineHeight != null ? { lineHeight: slide.style.titleLineHeight } : {}),
       ...(slide.style?.titleLetterSpacing != null ? { letterSpacing: `${slide.style.titleLetterSpacing}px` } : {}),
+      textAlign: resolveTextAlign('title'),
       ...buildTextEffectStyles(textEffects?.title),
     }
     const subtitleStyle: React.CSSProperties = {
@@ -140,6 +205,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
       ...(slide.style?.subtitleSize ? { fontSize: `${slide.style.subtitleSize}px` } : {}),
       ...(slide.style?.subtitleLineHeight != null ? { lineHeight: slide.style.subtitleLineHeight } : {}),
       ...(slide.style?.subtitleLetterSpacing != null ? { letterSpacing: `${slide.style.subtitleLetterSpacing}px` } : {}),
+      textAlign: resolveTextAlign('subtitle'),
       ...buildTextEffectStyles(textEffects?.subtitle),
     }
     const bodyStyle: React.CSSProperties = {
@@ -147,8 +213,45 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
       ...(slide.style?.bodySize ? { fontSize: `${slide.style.bodySize}px` } : {}),
       ...(slide.style?.bodyLineHeight != null ? { lineHeight: slide.style.bodyLineHeight } : {}),
       ...(slide.style?.bodyLetterSpacing != null ? { letterSpacing: `${slide.style.bodyLetterSpacing}px` } : {}),
+      textAlign: resolveTextAlign('body'),
       ...buildTextEffectStyles(textEffects?.body),
     }
+
+    const isCanvasDragging = useRef(false)
+
+    const handleCanvasPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isInteractive || !allowCanvasSelection) return
+      const target = event.target as HTMLElement
+      if (target.closest('[data-canvas-item-id]')) return
+
+      isCanvasDragging.current = true
+      event.stopPropagation()
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      onCanvasDragStart?.({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        additive: event.shiftKey || event.metaKey || event.ctrlKey,
+      })
+    }, [allowCanvasSelection, isInteractive, onCanvasDragStart])
+
+    const handleCanvasPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isCanvasDragging.current) return
+      onCanvasDragMove?.({
+        clientX: event.clientX,
+        clientY: event.clientY,
+      })
+    }, [onCanvasDragMove])
+
+    const handleCanvasPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isCanvasDragging.current) return
+      isCanvasDragging.current = false
+      event.currentTarget.releasePointerCapture(event.pointerId)
+      onCanvasDragEnd?.({
+        clientX: event.clientX,
+        clientY: event.clientY,
+      })
+    }, [onCanvasDragEnd])
 
     return (
       <div style={containerStyle}>
@@ -156,6 +259,10 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
           ref={ref}
           className={`card-slide ${slide.layoutId ? `layout-${slide.layoutId.replace('layout-', '')}` : 'layout-center'}`}
           style={bgStyle}
+          onPointerDown={handleCanvasPointerDown}
+          onPointerMove={handleCanvasPointerMove}
+          onPointerUp={handleCanvasPointerUp}
+          onPointerCancel={handleCanvasPointerUp}
         >
           {/* Image overlay */}
           {slide.image && imageStyle && (
@@ -193,13 +300,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.category ? (
                 <DraggableTextField
                   field="category"
+                  itemId={getTextItemId('category')}
                   offsetX={tp?.category?.x ?? 0} offsetY={tp?.category?.y ?? 0}
-                  scale={scale} isInteractive={isInteractive ?? false}
+                  contentAlign={resolveTextAlign('category')}
+                  isInteractive={isInteractive ?? false}
                   isSelected={selectedTextField === 'category'}
-                  onSelect={() => onTextFieldSelect?.('category')}
-                  onMove={(ox, oy) => onTextFieldMove?.('category', ox, oy)}
-                  onDeselect={() => onTextFieldDeselect?.()}
-                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
+                  onDragStart={(field, options) => onTextFieldDragStart?.(field, options)}
+                  onDragMove={(field, options) => onTextFieldDragMove?.(field, options)}
+                  onDragEnd={(field) => onTextFieldDragEnd?.(field)}
+                  onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                 >
                   <p className='relative z-10 slide-category' style={categoryStyle}>
                     {slide.content.category}
@@ -210,13 +319,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                 {slide.content.title && (
                   <DraggableTextField
                     field="title"
+                    itemId={getTextItemId('title')}
                     offsetX={tp?.title?.x ?? 0} offsetY={tp?.title?.y ?? 0}
-                    scale={scale} isInteractive={isInteractive ?? false}
+                    contentAlign={resolveTextAlign('title')}
+                    isInteractive={isInteractive ?? false}
                     isSelected={selectedTextField === 'title'}
-                    onSelect={() => onTextFieldSelect?.('title')}
-                    onMove={(ox, oy) => onTextFieldMove?.('title', ox, oy)}
-                    onDeselect={() => onTextFieldDeselect?.()}
-                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
+                    onDragStart={(field, options) => onTextFieldDragStart?.(field, options)}
+                    onDragMove={(field, options) => onTextFieldDragMove?.(field, options)}
+                    onDragEnd={(field) => onTextFieldDragEnd?.(field)}
+                    onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                   >
                     <h2 className='slide-title' style={titleStyle}>
                       {slide.content.title}
@@ -226,13 +337,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                 {slide.content.body && (
                   <DraggableTextField
                     field="body"
+                    itemId={getTextItemId('body')}
                     offsetX={tp?.body?.x ?? 0} offsetY={tp?.body?.y ?? 0}
-                    scale={scale} isInteractive={isInteractive ?? false}
+                    contentAlign={resolveTextAlign('body')}
+                    isInteractive={isInteractive ?? false}
                     isSelected={selectedTextField === 'body'}
-                    onSelect={() => onTextFieldSelect?.('body')}
-                    onMove={(ox, oy) => onTextFieldMove?.('body', ox, oy)}
-                    onDeselect={() => onTextFieldDeselect?.()}
-                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
+                    onDragStart={(field, options) => onTextFieldDragStart?.(field, options)}
+                    onDragMove={(field, options) => onTextFieldDragMove?.(field, options)}
+                    onDragEnd={(field) => onTextFieldDragEnd?.(field)}
+                    onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                   >
                     <p className='slide-body' style={bodyStyle}>
                       {slide.content.body}
@@ -243,13 +356,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.subtitle ? (
                 <DraggableTextField
                   field="subtitle"
+                  itemId={getTextItemId('subtitle')}
                   offsetX={tp?.subtitle?.x ?? 0} offsetY={tp?.subtitle?.y ?? 0}
-                  scale={scale} isInteractive={isInteractive ?? false}
+                  contentAlign={resolveTextAlign('subtitle')}
+                  isInteractive={isInteractive ?? false}
                   isSelected={selectedTextField === 'subtitle'}
-                  onSelect={() => onTextFieldSelect?.('subtitle')}
-                  onMove={(ox, oy) => onTextFieldMove?.('subtitle', ox, oy)}
-                  onDeselect={() => onTextFieldDeselect?.()}
-                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
+                  onDragStart={(field, options) => onTextFieldDragStart?.(field, options)}
+                  onDragMove={(field, options) => onTextFieldDragMove?.(field, options)}
+                  onDragEnd={(field) => onTextFieldDragEnd?.(field)}
+                  onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                 >
                   <p className='relative z-10 slide-subtitle' style={subtitleStyle}>
                     {slide.content.subtitle}
@@ -262,13 +377,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.category && (
                 <DraggableTextField
                   field="category"
+                  itemId={getTextItemId('category')}
                   offsetX={tp?.category?.x ?? 0} offsetY={tp?.category?.y ?? 0}
-                  scale={scale} isInteractive={isInteractive ?? false}
+                  contentAlign={resolveTextAlign('category')}
+                  isInteractive={isInteractive ?? false}
                   isSelected={selectedTextField === 'category'}
-                  onSelect={() => onTextFieldSelect?.('category')}
-                  onMove={(ox, oy) => onTextFieldMove?.('category', ox, oy)}
-                  onDeselect={() => onTextFieldDeselect?.()}
-                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
+                  onDragStart={(field, options) => onTextFieldDragStart?.(field, options)}
+                  onDragMove={(field, options) => onTextFieldDragMove?.(field, options)}
+                  onDragEnd={(field) => onTextFieldDragEnd?.(field)}
+                  onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                 >
                   <p className='slide-category' style={categoryStyle}>
                     {slide.content.category}
@@ -278,13 +395,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.title && (
                 <DraggableTextField
                   field="title"
+                  itemId={getTextItemId('title')}
                   offsetX={tp?.title?.x ?? 0} offsetY={tp?.title?.y ?? 0}
-                  scale={scale} isInteractive={isInteractive ?? false}
+                  contentAlign={resolveTextAlign('title')}
+                  isInteractive={isInteractive ?? false}
                   isSelected={selectedTextField === 'title'}
-                  onSelect={() => onTextFieldSelect?.('title')}
-                  onMove={(ox, oy) => onTextFieldMove?.('title', ox, oy)}
-                  onDeselect={() => onTextFieldDeselect?.()}
-                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
+                  onDragStart={(field, options) => onTextFieldDragStart?.(field, options)}
+                  onDragMove={(field, options) => onTextFieldDragMove?.(field, options)}
+                  onDragEnd={(field) => onTextFieldDragEnd?.(field)}
+                  onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                 >
                   <h2 className='slide-title' style={titleStyle}>
                     {slide.content.title}
@@ -294,13 +413,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.subtitle && (
                 <DraggableTextField
                   field="subtitle"
+                  itemId={getTextItemId('subtitle')}
                   offsetX={tp?.subtitle?.x ?? 0} offsetY={tp?.subtitle?.y ?? 0}
-                  scale={scale} isInteractive={isInteractive ?? false}
+                  contentAlign={resolveTextAlign('subtitle')}
+                  isInteractive={isInteractive ?? false}
                   isSelected={selectedTextField === 'subtitle'}
-                  onSelect={() => onTextFieldSelect?.('subtitle')}
-                  onMove={(ox, oy) => onTextFieldMove?.('subtitle', ox, oy)}
-                  onDeselect={() => onTextFieldDeselect?.()}
-                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
+                  onDragStart={(field, options) => onTextFieldDragStart?.(field, options)}
+                  onDragMove={(field, options) => onTextFieldDragMove?.(field, options)}
+                  onDragEnd={(field) => onTextFieldDragEnd?.(field)}
+                  onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                 >
                   <p className='slide-subtitle' style={subtitleStyle}>
                     {slide.content.subtitle}
@@ -310,13 +431,15 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {slide.content.body && (
                 <DraggableTextField
                   field="body"
+                  itemId={getTextItemId('body')}
                   offsetX={tp?.body?.x ?? 0} offsetY={tp?.body?.y ?? 0}
-                  scale={scale} isInteractive={isInteractive ?? false}
+                  contentAlign={resolveTextAlign('body')}
+                  isInteractive={isInteractive ?? false}
                   isSelected={selectedTextField === 'body'}
-                  onSelect={() => onTextFieldSelect?.('body')}
-                  onMove={(ox, oy) => onTextFieldMove?.('body', ox, oy)}
-                  onDeselect={() => onTextFieldDeselect?.()}
-                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
+                  onDragStart={(field, options) => onTextFieldDragStart?.(field, options)}
+                  onDragMove={(field, options) => onTextFieldDragMove?.(field, options)}
+                  onDragEnd={(field) => onTextFieldDragEnd?.(field)}
+                  onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                 >
                   <p className='slide-body' style={bodyStyle}>
                     {slide.content.body}
@@ -335,6 +458,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
             }
             return (
               <DraggableOverlay
+                itemId={getOverlayItemId(idx)}
                 key={`${overlay.assetId}-${idx}`}
                 url={resolved.url}
                 name={resolved.name}
@@ -344,13 +468,21 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                 opacity={overlay.opacity}
                 isSelected={selectedOverlayIndex === idx}
                 isInteractive={isInteractive ?? false}
-                onSelect={() => onOverlaySelect?.(idx)}
-                onMove={(nx, ny) => onOverlayMove?.(idx, nx, ny)}
+                onDragStart={(itemId, options) => onOverlayDragStart?.(itemId, options)}
+                onDragMove={(itemId, options) => onOverlayDragMove?.(itemId, options)}
+                onDragEnd={(itemId) => onOverlayDragEnd?.(itemId)}
                 onResize={(w) => onOverlayResize?.(idx, w)}
-                onDeselect={() => onOverlayDeselect?.()}
               />
             );
           })}
+          <CanvasSelectionLayer
+            selectedRects={multiSelectedRects}
+            selectionBounds={selectionBounds}
+            marqueeRect={marqueeRect}
+            activeGuides={snapGuides}
+            showGuides={showGuideOverlay}
+            padding={guidePadding ?? { top: 60, right: 60, bottom: 60, left: 60 }}
+          />
         </div>
       </div>
     )
