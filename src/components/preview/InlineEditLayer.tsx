@@ -90,11 +90,14 @@ export default function InlineEditLayer({
     }
 
     const rect = getRelativeRect(element);
-    const elBounds = element.getBoundingClientRect();
     if (rect) {
       setHighlightRect(rect);
-      // Use viewport coordinates for fixed toolbox positioning
-      setAnchorTopViewport(elBounds.top);
+      // Use container vertical center for fixed toolbox positioning
+      const container = containerRef.current;
+      if (container) {
+        const containerBounds = container.getBoundingClientRect();
+        setAnchorTopViewport(containerBounds.top + containerBounds.height / 2);
+      }
     }
   }, [selectedField, slideRef, getRelativeRect]);
 

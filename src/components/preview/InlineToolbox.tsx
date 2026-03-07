@@ -121,7 +121,13 @@ export default function InlineToolbox({
   const [showStroke, setShowStroke] = useState(false);
 
   // Position state: absolute top/left in viewport
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // Restore last dragged position from localStorage
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(() => {
+    try {
+      const saved = localStorage.getItem("toolbox-pos");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0, startTop: 0, startLeft: 0 });
 
@@ -141,10 +147,7 @@ export default function InlineToolbox({
     };
   }, []);
 
-  // Reset position when field changes (new element selected)
-  useEffect(() => {
-    setPos(null);
-  }, [field]);
+  // Keep saved position across field changes (no reset)
 
   // Measure actual toolbox height after render
   useEffect(() => {
@@ -177,13 +180,20 @@ export default function InlineToolbox({
     isDragging.current = false;
     document.removeEventListener("pointermove", handleDragMove);
     document.removeEventListener("pointerup", handleDragEnd);
+    // Persist position to localStorage
+    setPos((current) => {
+      if (current) {
+        try { localStorage.setItem("toolbox-pos", JSON.stringify(current)); } catch {}
+      }
+      return current;
+    });
   }, [handleDragMove]);
 
   const handleDragStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     isDragging.current = true;
     // Use current rendered position as the starting point
-    const shiftedTop = anchorTop - Math.round(toolboxHeight / 3);
+    const shiftedTop = anchorTop - Math.round(toolboxHeight / 2);
     const currentTop = pos?.top ?? clampPos(shiftedTop, anchorLeft, toolboxHeight).top;
     const currentLeft = pos?.left ?? clampPos(shiftedTop, anchorLeft, toolboxHeight).left;
     dragStart.current = {
@@ -205,8 +215,8 @@ export default function InlineToolbox({
   }, [handleDragMove, handleDragEnd]);
 
   // Compute final position: dragged position or clamped anchor
-  // Shift up by 1/3 of toolbox height so it's better centered on the selected element
-  const adjustedTop = anchorTop - Math.round(toolboxHeight / 3);
+  // Center toolbox vertically on the mockup container center
+  const adjustedTop = anchorTop - Math.round(toolboxHeight / 2);
   const finalPos = pos ?? clampPos(adjustedTop, anchorLeft, toolboxHeight);
 
   const currentSize = (style[config.sizeKey] as number | undefined) ?? config.defaultSize;
