@@ -25,6 +25,7 @@ import MyAssetsPanel from "./MyAssetsPanel";
 import OverlayControls from "./OverlayControls";
 import type { SlideContent, SlideImage, SlideStyle } from "@/types";
 import { colorPresets } from "@/data/presets";
+import type { AutosaveStatus } from "@/lib/autosave";
 import { STYLE_AUTOSAVE_DELAY_MS } from "@/lib/autosave";
 
 interface EditorPanelProps {
@@ -45,6 +46,7 @@ interface EditorPanelProps {
   onSelectOverlay?: (index: number) => void;
   localImage?: SlideImage;
   onImageChange?: (image: SlideImage | undefined) => void;
+  onStyleAutosaveStatusChange?: (status: AutosaveStatus) => void;
 }
 
 const ALL_SECTION_IDS = ["style", "layout", "image", "assets"];
@@ -120,6 +122,7 @@ export default function EditorPanel({
   onSelectOverlay,
   localImage,
   onImageChange,
+  onStyleAutosaveStatusChange,
 }: EditorPanelProps) {
   // All sections open by default
   const [openSections, setOpenSections] = useState<Set<string>>(
@@ -186,10 +189,19 @@ export default function EditorPanel({
 
   const flushStyleChange = useCallback(
     async (newStyle: SlideStyle, slideId: Id<"slides">) => {
-      await updateStyleMutation({ slideId, style: newStyle });
-      stylePendingRef.current = false;
+      let wasSuccessful = false;
+
+      try {
+        await updateStyleMutation({ slideId, style: newStyle });
+        wasSuccessful = true;
+      } catch (error) {
+        console.error("Failed to autosave editor panel style", error);
+      } finally {
+        stylePendingRef.current = false;
+        onStyleAutosaveStatusChange?.(wasSuccessful ? "saved" : "error");
+      }
     },
-    [updateStyleMutation]
+    [onStyleAutosaveStatusChange, updateStyleMutation]
   );
 
   if (!slide) return null;
@@ -222,6 +234,7 @@ export default function EditorPanel({
     const newStyle: SlideStyle = { ...currentStyle, ...styleOverride };
     setLocalStyle(newStyle);
     onLocalStyleChange?.(newStyle);
+    onStyleAutosaveStatusChange?.("saving");
     stylePendingRef.current = true;
 
     if (styleTimerRef.current) clearTimeout(styleTimerRef.current);

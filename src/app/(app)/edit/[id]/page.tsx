@@ -30,6 +30,7 @@ import InlineEditLayer from "@/components/preview/InlineEditLayer";
 import { getLayoutTextAlign } from "@/data/layouts";
 import {
   ASSET_AUTOSAVE_DELAY_MS,
+  type AutosaveStatus,
   CONTENT_AUTOSAVE_DELAY_MS,
   STYLE_AUTOSAVE_DELAY_MS,
 } from "@/lib/autosave";
@@ -98,6 +99,7 @@ const TEXT_ALIGN_ACTIONS = [
 type Overlay = NonNullable<CardSlide["overlays"]>[number];
 type AlignCommand = (typeof BLOCK_ALIGN_ACTIONS)[number]["command"];
 type TextAlignCommand = (typeof TEXT_ALIGN_ACTIONS)[number]["alignment"];
+type SaveSource = "content" | "style" | "overlay" | "image" | "editor-panel-style";
 
 interface DragSession {
   selectedIds: CanvasItemId[];
@@ -173,6 +175,27 @@ function ToolbarIconButton({
   );
 }
 
+const SAVE_STATUS_META: Record<
+  AutosaveStatus,
+  { label: string; className: string; dotClassName: string }
+> = {
+  saving: {
+    label: "저장 중…",
+    className: "border-stone-200 bg-stone-100/80 text-stone-600",
+    dotClassName: "bg-stone-400 animate-pulse",
+  },
+  saved: {
+    label: "저장됨",
+    className: "border-zinc-200 bg-zinc-100/80 text-zinc-700",
+    dotClassName: "bg-zinc-500",
+  },
+  error: {
+    label: "저장 실패",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
+    dotClassName: "bg-rose-500",
+  },
+};
+
 function mapConvexSlide(slide: Doc<"slides">): CardSlide {
   return {
     id: slide._id,
@@ -200,25 +223,6 @@ function mapConvexSlide(slide: Doc<"slides">): CardSlide {
       opacity: overlay.opacity,
     })),
     htmlContent: "",
-  };
-}
-
-function buildTextPositionsWithoutField(
-  currentStyle: SlideStyle,
-  field: EditableTextField
-): SlideStyle {
-  const nextPositions = { ...(currentStyle.textPositions ?? {}) };
-  delete nextPositions[field];
-
-  if (Object.keys(nextPositions).length === 0) {
-    const { textPositions, ...rest } = currentStyle;
-    void textPositions;
-    return { ...rest };
-  }
-
-  return {
-    ...currentStyle,
-    textPositions: nextPositions,
   };
 }
 
@@ -278,6 +282,7 @@ export default function EditPage() {
   const [editingTextField, setEditingTextField] = useState<EditableTextField | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<BaseRect | null>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
+  const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("saved");
   const [isDraggingSelection, setIsDraggingSelection] = useState(false);
   const [showGuideOverlay, setShowGuideOverlay] = useState(true);
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -300,6 +305,7 @@ export default function EditPage() {
   const imagePendingRef = useRef(false);
   const imageTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const styleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const activeSaveSourcesRef = useRef<Set<SaveSource>>(new Set());
 
   const projectId = params.id as Id<"projects">;
   const project = useQuery(api.projects.getProject, { projectId });
@@ -335,6 +341,29 @@ export default function EditPage() {
     return localOverlays ?? (convexSlide?.overlays as Overlay[] | undefined) ?? [];
   }, [convexSlide, localOverlays]);
 
+  const markSaveSourcePending = useCallback((source: SaveSource) => {
+    activeSaveSourcesRef.current.add(source);
+    setAutosaveStatus("saving");
+  }, []);
+
+  const finalizeSaveSource = useCallback((source: SaveSource, status: "saved" | "error") => {
+    activeSaveSourcesRef.current.delete(source);
+    setAutosaveStatus((currentStatus) => {
+      if (status === "error") return "error";
+      if (activeSaveSourcesRef.current.size > 0) return currentStatus === "error" ? "error" : "saving";
+      return currentStatus === "error" ? "error" : "saved";
+    });
+  }, []);
+
+  const handleEditorPanelStyleAutosaveStatusChange = useCallback((status: AutosaveStatus) => {
+    if (status === "saving") {
+      markSaveSourcePending("editor-panel-style");
+      return;
+    }
+
+    finalizeSaveSource("editor-panel-style", status);
+  }, [finalizeSaveSource, markSaveSourcePending]);
+
   const clearSelection = useCallback(() => {
     dragSessionRef.current = null;
     marqueeSessionRef.current = null;
@@ -364,59 +393,77 @@ export default function EditPage() {
     (nextStyle: SlideStyle) => {
       if (!convexSlide) return;
       setLocalStyle(nextStyle);
+      if (!stylePendingRef.current) {
+        markSaveSourcePending("style");
+      }
       stylePendingRef.current = true;
       if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
       styleTimerRef.current = setTimeout(() => {
         void (async () => {
+          let wasSuccessful = false;
+
           try {
             await updateStyleMutation({
               slideId: convexSlide._id as Id<"slides">,
               style: nextStyle,
             });
+            wasSuccessful = true;
           } catch (error) {
             console.error("Failed to autosave slide style", error);
           } finally {
             stylePendingRef.current = false;
+            finalizeSaveSource("style", wasSuccessful ? "saved" : "error");
           }
         })();
       }, STYLE_AUTOSAVE_DELAY_MS);
     },
-    [convexSlide, updateStyleMutation]
+    [convexSlide, finalizeSaveSource, markSaveSourcePending, updateStyleMutation]
   );
 
   const scheduleOverlayPersist = useCallback(
     (nextOverlays: Overlay[]) => {
       if (!convexSlide) return;
       setLocalOverlays(nextOverlays);
+      if (!overlayPendingRef.current) {
+        markSaveSourcePending("overlay");
+      }
       overlayPendingRef.current = true;
       if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
       overlayTimerRef.current = setTimeout(() => {
         void (async () => {
+          let wasSuccessful = false;
+
           try {
             await updateOverlaysMutation({
               slideId: convexSlide._id as Id<"slides">,
               overlays: nextOverlays as Parameters<typeof updateOverlaysMutation>[0]["overlays"],
             });
+            wasSuccessful = true;
           } catch (error) {
             console.error("Failed to autosave overlays", error);
           } finally {
             overlayPendingRef.current = false;
+            finalizeSaveSource("overlay", wasSuccessful ? "saved" : "error");
           }
         })();
       }, ASSET_AUTOSAVE_DELAY_MS);
     },
-    [convexSlide, updateOverlaysMutation]
+    [convexSlide, finalizeSaveSource, markSaveSourcePending, updateOverlaysMutation]
   );
 
   const handleContentChange = useCallback(
     (content: SlideContent) => {
       setLocalContent(content);
+      if (!pendingRef.current) {
+        markSaveSourcePending("content");
+      }
       pendingRef.current = true;
 
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         void (async () => {
           if (!convexSlide) return;
+          let wasSuccessful = false;
 
           try {
             await updateSlideMutation({
@@ -429,15 +476,17 @@ export default function EditPage() {
                 source: content.source,
               },
             });
+            wasSuccessful = true;
           } catch (error) {
             console.error("Failed to autosave slide content", error);
           } finally {
             pendingRef.current = false;
+            finalizeSaveSource("content", wasSuccessful ? "saved" : "error");
           }
         })();
       }, CONTENT_AUTOSAVE_DELAY_MS);
     },
-    [convexSlide, updateSlideMutation]
+    [convexSlide, finalizeSaveSource, markSaveSourcePending, updateSlideMutation]
   );
 
   useEffect(() => {
@@ -503,11 +552,15 @@ export default function EditPage() {
   useEffect(() => {
     if (!convexSlide) {
       initializedSlideIdRef.current = null;
+      activeSaveSourcesRef.current.clear();
+      setAutosaveStatus("saved");
       return;
     }
     if (initializedSlideIdRef.current === convexSlide._id) return;
 
     initializedSlideIdRef.current = convexSlide._id;
+    activeSaveSourcesRef.current.clear();
+    setAutosaveStatus("saved");
 
     pendingRef.current = false;
     stylePendingRef.current = false;
@@ -615,10 +668,6 @@ export default function EditPage() {
     : null;
   const selectedTextField = singleSelectedItemId && isTextItemId(singleSelectedItemId)
     ? (singleSelectedItemId.replace("text:", "") as EditableTextField)
-    : null;
-
-  const editingTextPosition = editingTextField
-    ? getCurrentStyle().textPositions?.[editingTextField] ?? { x: 0, y: 0 }
     : null;
 
   const selectedTextAlignment = useMemo<TextAlignCommand | null>(() => {
@@ -953,57 +1002,6 @@ export default function EditPage() {
     [convexSlide?.layoutId, getCurrentStyle, scheduleStylePersist, selectedTextFields]
   );
 
-  const handleNudgeTextFieldPosition = useCallback(
-    (field: EditableTextField, dx: number, dy: number) => {
-      const currentStyle = getCurrentStyle();
-      const currentPosition = currentStyle.textPositions?.[field] ?? { x: 0, y: 0 };
-      scheduleStylePersist({
-        ...currentStyle,
-        textPositions: {
-          ...(currentStyle.textPositions ?? {}),
-          [field]: {
-            x: currentPosition.x + dx,
-            y: currentPosition.y + dy,
-          },
-        },
-      });
-    },
-    [getCurrentStyle, scheduleStylePersist]
-  );
-
-  const handleCenterTextFieldPosition = useCallback(
-    (field: EditableTextField, axis: "horizontal" | "vertical") => {
-      const slideElement = allSlideRefs.current[safeIndex] ?? null;
-      const measured = measureCanvasItems(slideElement);
-      const item = measured.items.find((candidate) => candidate.id === getTextItemId(field));
-      if (!item) return;
-
-      const currentStyle = getCurrentStyle();
-      const currentPosition = currentStyle.textPositions?.[field] ?? { x: 0, y: 0 };
-      const deltaX = axis === "horizontal" ? BASE_SLIDE_WIDTH / 2 - item.rect.centerX : 0;
-      const deltaY = axis === "vertical" ? BASE_SLIDE_HEIGHT / 2 - item.rect.centerY : 0;
-
-      scheduleStylePersist({
-        ...currentStyle,
-        textPositions: {
-          ...(currentStyle.textPositions ?? {}),
-          [field]: {
-            x: Math.round(currentPosition.x + deltaX),
-            y: Math.round(currentPosition.y + deltaY),
-          },
-        },
-      });
-    },
-    [getCurrentStyle, safeIndex, scheduleStylePersist]
-  );
-
-  const handleResetTextFieldPosition = useCallback(
-    (field: EditableTextField) => {
-      scheduleStylePersist(buildTextPositionsWithoutField(getCurrentStyle(), field));
-    },
-    [getCurrentStyle, scheduleStylePersist]
-  );
-
   if (project === undefined || slides === undefined) {
     return (
       <div className="flex h-full items-center justify-center text-muted">
@@ -1041,6 +1039,7 @@ export default function EditPage() {
   const cardHeight = cardWidth * (BASE_SLIDE_HEIGHT / BASE_SLIDE_WIDTH);
   const canGoToPreviousPreviewSlide = isDesktopCanvas && safeIndex > 0;
   const canGoToNextPreviewSlide = isDesktopCanvas && safeIndex < allSlides.length - 1;
+  const autosaveStatusMeta = SAVE_STATUS_META[autosaveStatus];
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -1058,8 +1057,11 @@ export default function EditPage() {
           </span>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
-          <span className="hidden rounded-lg border border-border px-3 py-1.5 text-xs text-muted md:inline-flex">
-            자동 저장
+          <span
+            className={`hidden items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium md:inline-flex ${autosaveStatusMeta.className}`}
+          >
+            <span className={`h-2 w-2 rounded-full ${autosaveStatusMeta.dotClassName}`} />
+            {autosaveStatusMeta.label}
           </span>
           <button
             onClick={() => router.push("/create")}
@@ -1110,6 +1112,7 @@ export default function EditPage() {
             localContent={localContent ?? convexSlide.content ?? { title: "" }}
             onContentChange={handleContentChange}
             onLocalStyleChange={setLocalStyle}
+            onStyleAutosaveStatusChange={handleEditorPanelStyleAutosaveStatusChange}
             overlays={getCurrentOverlays()}
             selectedOverlayIndex={selectedOverlayIndex}
             onSelectOverlay={(index) => {
@@ -1152,10 +1155,15 @@ export default function EditPage() {
             localImage={localImage !== undefined ? (localImage ?? undefined) : undefined}
             onImageChange={(image: SlideImage | undefined) => {
               setLocalImage(image ?? null);
+              if (!imagePendingRef.current) {
+                markSaveSourcePending("image");
+              }
               imagePendingRef.current = true;
               if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
               imageTimerRef.current = setTimeout(() => {
                 void (async () => {
+                  let wasSuccessful = false;
+
                   try {
                     await updateImageMutation({
                       slideId: convexSlide._id as Id<"slides">,
@@ -1169,8 +1177,12 @@ export default function EditPage() {
                           }
                         : undefined,
                     });
+                    wasSuccessful = true;
+                  } catch (error) {
+                    console.error("Failed to autosave slide image", error);
                   } finally {
                     imagePendingRef.current = false;
+                    finalizeSaveSource("image", wasSuccessful ? "saved" : "error");
                   }
                 })();
               }, ASSET_AUTOSAVE_DELAY_MS);
@@ -1362,10 +1374,6 @@ export default function EditPage() {
                     },
                   });
                 }}
-                currentPosition={editingTextPosition}
-                onNudgePosition={handleNudgeTextFieldPosition}
-                onCenterPosition={handleCenterTextFieldPosition}
-                onResetPosition={handleResetTextFieldPosition}
               />
             </div>
 

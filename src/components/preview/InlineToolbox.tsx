@@ -32,10 +32,6 @@ interface InlineToolboxProps {
   onTextEffectsChange: (field: EditableField, effects: Partial<TextFieldEffects>) => void;
   originalContent?: SlideContent;
   onResetField?: (field: EditableField) => void;
-  position?: { x: number; y: number };
-  onNudgePosition?: (field: EditableField, dx: number, dy: number) => void;
-  onCenterPosition?: (field: EditableField, axis: "horizontal" | "vertical") => void;
-  onResetPosition?: (field: EditableField) => void;
 }
 
 const FIELD_LABELS: Record<EditableField, string> = {
@@ -122,10 +118,6 @@ export default function InlineToolbox({
   onTextEffectsChange,
   originalContent,
   onResetField,
-  position,
-  onNudgePosition,
-  onCenterPosition,
-  onResetPosition,
 }: InlineToolboxProps) {
   const toolboxRef = useRef<HTMLDivElement>(null);
   const [toolboxHeight, setToolboxHeight] = useState(400);
@@ -325,91 +317,6 @@ export default function InlineToolbox({
         selected={currentFontId}
         onChange={onFontChange}
       />
-
-      {(position || onNudgePosition || onCenterPosition || onResetPosition) && (
-        <div className="rounded-lg border border-border p-2.5">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
-              위치 / 정렬
-            </span>
-            {position && (
-              <span className="text-[10px] text-muted">
-                X {Math.round(position.x)} · Y {Math.round(position.y)}
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              type="button"
-              onClick={() => onCenterPosition?.(field, "horizontal")}
-              className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              가로 중앙
-            </button>
-            <button
-              type="button"
-              onClick={() => onCenterPosition?.(field, "vertical")}
-              className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              세로 중앙
-            </button>
-          </div>
-
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
-            <button
-              type="button"
-              onClick={() => onNudgePosition?.(field, -1, 0)}
-              className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              ← 1
-            </button>
-            <button
-              type="button"
-              onClick={() => onNudgePosition?.(field, 0, -1)}
-              className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              ↑ 1
-            </button>
-            <button
-              type="button"
-              onClick={() => onNudgePosition?.(field, 1, 0)}
-              className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              1 →
-            </button>
-            <button
-              type="button"
-              onClick={() => onNudgePosition?.(field, -10, 0)}
-              className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              ← 10
-            </button>
-            <button
-              type="button"
-              onClick={() => onNudgePosition?.(field, 0, 1)}
-              className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              ↓ 1
-            </button>
-            <button
-              type="button"
-              onClick={() => onNudgePosition?.(field, 10, 0)}
-              className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              10 →
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onResetPosition?.(field)}
-            className="mt-2 w-full rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-          >
-            위치 초기화
-          </button>
-        </div>
-      )}
 
       {/* Size Slider */}
       <div>

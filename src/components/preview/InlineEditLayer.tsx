@@ -23,10 +23,6 @@ interface InlineEditLayerProps {
   onTextEffectsChange: (field: EditableTextField, effects: Partial<TextFieldEffects>) => void;
   originalContent?: SlideContent;
   onResetField?: (field: EditableTextField) => void;
-  currentPosition?: { x: number; y: number } | null;
-  onNudgePosition?: (field: EditableTextField, dx: number, dy: number) => void;
-  onCenterPosition?: (field: EditableTextField, axis: "horizontal" | "vertical") => void;
-  onResetPosition?: (field: EditableTextField) => void;
 }
 
 interface HighlightRect {
@@ -50,10 +46,6 @@ export default function InlineEditLayer({
   onTextEffectsChange,
   originalContent,
   onResetField,
-  currentPosition,
-  onNudgePosition,
-  onCenterPosition,
-  onResetPosition,
 }: InlineEditLayerProps) {
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
   const [anchorTopViewport, setAnchorTopViewport] = useState(0);
@@ -154,10 +146,6 @@ export default function InlineEditLayer({
           onTextEffectsChange={onTextEffectsChange}
           originalContent={originalContent}
           onResetField={onResetField}
-          position={currentPosition ?? undefined}
-          onNudgePosition={onNudgePosition}
-          onCenterPosition={onCenterPosition}
-          onResetPosition={onResetPosition}
         />
       )}
     </>
