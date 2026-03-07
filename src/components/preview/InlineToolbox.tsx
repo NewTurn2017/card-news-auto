@@ -4,7 +4,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { X, GripHorizontal } from "lucide-react";
 import { getFontByFamily } from "@/data/fonts";
 import FontSelector from "@/components/editor/FontSelector";
-import type { SlideStyle, SlideContent } from "@/types";
+import type { SlideStyle, SlideContent, TextFieldEffects } from "@/types";
 
 export type EditableField = "category" | "title" | "subtitle" | "body";
 
@@ -18,6 +18,13 @@ interface InlineToolboxProps {
   onFontChange: (fontId: string) => void;
   onContentChange: (content: SlideContent) => void;
   onClose: () => void;
+  textEffects?: {
+    category?: TextFieldEffects;
+    title?: TextFieldEffects;
+    subtitle?: TextFieldEffects;
+    body?: TextFieldEffects;
+  };
+  onTextEffectsChange: (field: EditableField, effects: Partial<TextFieldEffects>) => void;
 }
 
 const FIELD_LABELS: Record<EditableField, string> = {
@@ -100,9 +107,14 @@ export default function InlineToolbox({
   onFontChange,
   onContentChange,
   onClose,
+  textEffects,
+  onTextEffectsChange,
 }: InlineToolboxProps) {
   const toolboxRef = useRef<HTMLDivElement>(null);
   const [toolboxHeight, setToolboxHeight] = useState(400);
+  const [showShadow, setShowShadow] = useState(false);
+  const [showTextBg, setShowTextBg] = useState(false);
+  const [showStroke, setShowStroke] = useState(false);
 
   // Position state: absolute top/left in viewport
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -110,6 +122,10 @@ export default function InlineToolbox({
   const dragStart = useRef({ x: 0, y: 0, startTop: 0, startLeft: 0 });
 
   const config = FIELD_CONFIG[field];
+  const currentEffects: TextFieldEffects = textEffects?.[field] ?? {};
+  const updateEffects = (partial: Partial<TextFieldEffects>) => {
+    onTextEffectsChange(field, partial);
+  };
 
   // Clamp position so entire toolbox stays within viewport
   const clampPos = useCallback((top: number, left: number, height: number) => {
@@ -322,6 +338,241 @@ export default function InlineToolbox({
           className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
         />
         <span className="text-[11px] text-muted">{currentColor}</span>
+      </div>
+
+      {/* Text Style Toggles */}
+      <div>
+        <span className="text-[11px] text-muted mb-1 block">텍스트 스타일</span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => updateEffects({ fontWeight: (currentEffects.fontWeight ?? 400) >= 700 ? 400 : 700 })}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${
+              (currentEffects.fontWeight ?? 400) >= 700
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-muted hover:border-muted hover:text-foreground"
+            }`}
+            title="굵게"
+          >
+            B
+          </button>
+          <button
+            onClick={() => updateEffects({ italic: !currentEffects.italic })}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm italic transition-colors ${
+              currentEffects.italic
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-muted hover:border-muted hover:text-foreground"
+            }`}
+            title="기울임"
+          >
+            I
+          </button>
+          <button
+            onClick={() => updateEffects({ underline: !currentEffects.underline })}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm underline transition-colors ${
+              currentEffects.underline
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-muted hover:border-muted hover:text-foreground"
+            }`}
+            title="밑줄"
+          >
+            U
+          </button>
+          <button
+            onClick={() => updateEffects({ strikethrough: !currentEffects.strikethrough })}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm line-through transition-colors ${
+              currentEffects.strikethrough
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-muted hover:border-muted hover:text-foreground"
+            }`}
+            title="취소선"
+          >
+            S
+          </button>
+          <button
+            onClick={() => updateEffects({ uppercase: !currentEffects.uppercase })}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg border text-[10px] font-medium transition-colors ${
+              currentEffects.uppercase
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-muted hover:border-muted hover:text-foreground"
+            }`}
+            title="대문자"
+          >
+            AA
+          </button>
+        </div>
+      </div>
+
+      {/* Text Opacity */}
+      <div>
+        <div className={labelRowClass}>
+          <span>불투명도</span>
+          <span>{currentEffects.opacity ?? 100}%</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={currentEffects.opacity ?? 100}
+          onChange={(e) => updateEffects({ opacity: Number(e.target.value) })}
+          className={sliderClass}
+        />
+      </div>
+
+      {/* Text Shadow */}
+      <div>
+        <button
+          onClick={() => setShowShadow(!showShadow)}
+          className="flex w-full items-center justify-between text-[11px] text-muted mb-1"
+        >
+          <span>그림자</span>
+          <span className="text-[10px]">{showShadow ? "▲" : "▼"}</span>
+        </button>
+        {showShadow && (
+          <div className="flex flex-col gap-2 rounded-lg border border-border p-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted w-8">색상</span>
+              <input
+                type="color"
+                value={currentEffects.shadowColor ?? "#000000"}
+                onChange={(e) => updateEffects({ shadowColor: e.target.value })}
+                className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
+              />
+              <span className="text-[10px] text-muted">{currentEffects.shadowColor ?? "#000000"}</span>
+            </div>
+            <div>
+              <div className={labelRowClass}>
+                <span>흐림</span>
+                <span>{currentEffects.shadowBlur ?? 0}px</span>
+              </div>
+              <input
+                type="range" min={0} max={20} step={1}
+                value={currentEffects.shadowBlur ?? 0}
+                onChange={(e) => updateEffects({ shadowBlur: Number(e.target.value) })}
+                className={sliderClass}
+              />
+            </div>
+            <div>
+              <div className={labelRowClass}>
+                <span>X 오프셋</span>
+                <span>{currentEffects.shadowX ?? 0}px</span>
+              </div>
+              <input
+                type="range" min={-10} max={10} step={1}
+                value={currentEffects.shadowX ?? 0}
+                onChange={(e) => updateEffects({ shadowX: Number(e.target.value) })}
+                className={sliderClass}
+              />
+            </div>
+            <div>
+              <div className={labelRowClass}>
+                <span>Y 오프셋</span>
+                <span>{currentEffects.shadowY ?? 0}px</span>
+              </div>
+              <input
+                type="range" min={-10} max={10} step={1}
+                value={currentEffects.shadowY ?? 0}
+                onChange={(e) => updateEffects({ shadowY: Number(e.target.value) })}
+                className={sliderClass}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Text Background */}
+      <div>
+        <button
+          onClick={() => setShowTextBg(!showTextBg)}
+          className="flex w-full items-center justify-between text-[11px] text-muted mb-1"
+        >
+          <span>텍스트 배경</span>
+          <span className="text-[10px]">{showTextBg ? "▲" : "▼"}</span>
+        </button>
+        {showTextBg && (
+          <div className="flex flex-col gap-2 rounded-lg border border-border p-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted w-8">색상</span>
+              <input
+                type="color"
+                value={currentEffects.bgColor ?? "#000000"}
+                onChange={(e) => updateEffects({ bgColor: e.target.value })}
+                className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
+              />
+              <button
+                onClick={() => updateEffects({ bgColor: undefined, bgPadding: undefined, bgRadius: undefined })}
+                className="text-[10px] text-muted hover:text-red-400 ml-auto"
+              >
+                초기화
+              </button>
+            </div>
+            <div>
+              <div className={labelRowClass}>
+                <span>패딩</span>
+                <span>{currentEffects.bgPadding ?? 0}px</span>
+              </div>
+              <input
+                type="range" min={0} max={20} step={1}
+                value={currentEffects.bgPadding ?? 0}
+                onChange={(e) => updateEffects({ bgPadding: Number(e.target.value) })}
+                className={sliderClass}
+              />
+            </div>
+            <div>
+              <div className={labelRowClass}>
+                <span>둥글기</span>
+                <span>{currentEffects.bgRadius ?? 0}px</span>
+              </div>
+              <input
+                type="range" min={0} max={20} step={1}
+                value={currentEffects.bgRadius ?? 0}
+                onChange={(e) => updateEffects({ bgRadius: Number(e.target.value) })}
+                className={sliderClass}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Text Stroke */}
+      <div>
+        <button
+          onClick={() => setShowStroke(!showStroke)}
+          className="flex w-full items-center justify-between text-[11px] text-muted mb-1"
+        >
+          <span>텍스트 윤곽선</span>
+          <span className="text-[10px]">{showStroke ? "▲" : "▼"}</span>
+        </button>
+        {showStroke && (
+          <div className="flex flex-col gap-2 rounded-lg border border-border p-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted w-8">색상</span>
+              <input
+                type="color"
+                value={currentEffects.strokeColor ?? "#000000"}
+                onChange={(e) => updateEffects({ strokeColor: e.target.value })}
+                className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
+              />
+              <button
+                onClick={() => updateEffects({ strokeColor: undefined, strokeWidth: undefined })}
+                className="text-[10px] text-muted hover:text-red-400 ml-auto"
+              >
+                초기화
+              </button>
+            </div>
+            <div>
+              <div className={labelRowClass}>
+                <span>두께</span>
+                <span>{currentEffects.strokeWidth ?? 0}px</span>
+              </div>
+              <input
+                type="range" min={0} max={5} step={0.5}
+                value={currentEffects.strokeWidth ?? 0}
+                onChange={(e) => updateEffects({ strokeWidth: Number(e.target.value) })}
+                className={sliderClass}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

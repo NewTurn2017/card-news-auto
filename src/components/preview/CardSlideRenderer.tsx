@@ -1,10 +1,46 @@
 'use client'
 
 import { forwardRef, useEffect } from 'react'
-import type { CardSlide } from '@/types'
+import type { CardSlide, TextFieldEffects } from '@/types'
 import { getPresetById } from '@/data/presets'
 import { getFontById } from '@/data/fonts'
 import { sanitizeHtml } from '@/lib/sanitize'
+
+function buildTextEffectStyles(effects?: TextFieldEffects): React.CSSProperties {
+  if (!effects) return {};
+  const styles: React.CSSProperties = {};
+
+  if (effects.fontWeight) styles.fontWeight = effects.fontWeight;
+  if (effects.italic) styles.fontStyle = 'italic';
+
+  const decorations: string[] = [];
+  if (effects.underline) decorations.push('underline');
+  if (effects.strikethrough) decorations.push('line-through');
+  if (decorations.length > 0) styles.textDecoration = decorations.join(' ');
+
+  if (effects.uppercase) styles.textTransform = 'uppercase';
+  if (effects.opacity != null && effects.opacity < 100) styles.opacity = effects.opacity / 100;
+
+  if (effects.shadowColor && (effects.shadowBlur || effects.shadowX || effects.shadowY)) {
+    styles.textShadow = `${effects.shadowX ?? 0}px ${effects.shadowY ?? 0}px ${effects.shadowBlur ?? 0}px ${effects.shadowColor}`;
+  }
+
+  if (effects.bgColor) {
+    styles.backgroundColor = effects.bgColor;
+    styles.padding = `${effects.bgPadding ?? 4}px`;
+    styles.borderRadius = `${effects.bgRadius ?? 4}px`;
+    (styles as Record<string, unknown>).boxDecorationBreak = 'clone';
+    (styles as Record<string, unknown>).WebkitBoxDecorationBreak = 'clone';
+    styles.display = 'inline';
+  }
+
+  if (effects.strokeColor && effects.strokeWidth) {
+    (styles as Record<string, unknown>).WebkitTextStroke = `${effects.strokeWidth}px ${effects.strokeColor}`;
+    styles.paintOrder = 'stroke fill';
+  }
+
+  return styles;
+}
 
 interface CardSlideRendererProps {
   slide: CardSlide
@@ -65,6 +101,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
     const subtextColor = preset.subtextColor ?? 'rgba(255,255,255,0.7)'
     const layoutId = slide.layoutId?.replace('layout-', '') ?? 'center'
     const isSplitLayout = layoutId === 'split'
+    const textEffects = slide.style?.textEffects
 
     return (
       <div style={containerStyle}>
@@ -115,6 +152,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                     ...(slide.style?.categorySize
                       ? { fontSize: `${slide.style.categorySize}px` }
                       : {}),
+                    ...buildTextEffectStyles(textEffects?.category),
                   }}
                 >
                   {slide.content.category}
@@ -130,6 +168,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                       ...(slide.style?.titleSize ? { fontSize: `${slide.style.titleSize}px` } : {}),
                       ...(slide.style?.titleLineHeight != null ? { lineHeight: slide.style.titleLineHeight } : {}),
                       ...(slide.style?.titleLetterSpacing != null ? { letterSpacing: `${slide.style.titleLetterSpacing}px` } : {}),
+                      ...buildTextEffectStyles(textEffects?.title),
                     }}
                   >
                     {slide.content.title}
@@ -144,6 +183,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                       ...(slide.style?.bodySize ? { fontSize: `${slide.style.bodySize}px` } : {}),
                       ...(slide.style?.bodyLineHeight != null ? { lineHeight: slide.style.bodyLineHeight } : {}),
                       ...(slide.style?.bodyLetterSpacing != null ? { letterSpacing: `${slide.style.bodyLetterSpacing}px` } : {}),
+                      ...buildTextEffectStyles(textEffects?.body),
                     }}
                   >
                     {slide.content.body}
@@ -161,6 +201,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                       : {}),
                     ...(slide.style?.subtitleLineHeight != null ? { lineHeight: slide.style.subtitleLineHeight } : {}),
                     ...(slide.style?.subtitleLetterSpacing != null ? { letterSpacing: `${slide.style.subtitleLetterSpacing}px` } : {}),
+                    ...buildTextEffectStyles(textEffects?.subtitle),
                   }}
                 >
                   {slide.content.subtitle}
@@ -178,6 +219,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                     ...(slide.style?.categorySize
                       ? { fontSize: `${slide.style.categorySize}px` }
                       : {}),
+                    ...buildTextEffectStyles(textEffects?.category),
                   }}
                 >
                   {slide.content.category}
@@ -192,6 +234,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                     ...(slide.style?.titleSize ? { fontSize: `${slide.style.titleSize}px` } : {}),
                     ...(slide.style?.titleLineHeight != null ? { lineHeight: slide.style.titleLineHeight } : {}),
                     ...(slide.style?.titleLetterSpacing != null ? { letterSpacing: `${slide.style.titleLetterSpacing}px` } : {}),
+                    ...buildTextEffectStyles(textEffects?.title),
                   }}
                 >
                   {slide.content.title}
@@ -208,6 +251,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                       : {}),
                     ...(slide.style?.subtitleLineHeight != null ? { lineHeight: slide.style.subtitleLineHeight } : {}),
                     ...(slide.style?.subtitleLetterSpacing != null ? { letterSpacing: `${slide.style.subtitleLetterSpacing}px` } : {}),
+                    ...buildTextEffectStyles(textEffects?.subtitle),
                   }}
                 >
                   {slide.content.subtitle}
@@ -222,6 +266,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                     ...(slide.style?.bodySize ? { fontSize: `${slide.style.bodySize}px` } : {}),
                     ...(slide.style?.bodyLineHeight != null ? { lineHeight: slide.style.bodyLineHeight } : {}),
                     ...(slide.style?.bodyLetterSpacing != null ? { letterSpacing: `${slide.style.bodyLetterSpacing}px` } : {}),
+                    ...buildTextEffectStyles(textEffects?.body),
                   }}
                 >
                   {slide.content.body}

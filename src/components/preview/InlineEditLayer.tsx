@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import InlineToolbox, { type EditableField } from "./InlineToolbox";
-import type { SlideStyle, SlideContent } from "@/types";
+import type { SlideStyle, SlideContent, TextFieldEffects } from "@/types";
 
 export interface SlideClickInfo {
   clientX: number;
@@ -19,6 +19,13 @@ interface InlineEditLayerProps {
   onFontChange: (fontId: string) => void;
   onContentChange: (content: SlideContent) => void;
   clickInfo: SlideClickInfo | null;
+  textEffects?: {
+    category?: TextFieldEffects;
+    title?: TextFieldEffects;
+    subtitle?: TextFieldEffects;
+    body?: TextFieldEffects;
+  };
+  onTextEffectsChange: (field: string, effects: Partial<TextFieldEffects>) => void;
 }
 
 interface HighlightRect {
@@ -37,6 +44,8 @@ export default function InlineEditLayer({
   onFontChange,
   onContentChange,
   clickInfo,
+  textEffects,
+  onTextEffectsChange,
 }: InlineEditLayerProps) {
   const [selectedField, setSelectedField] = useState<EditableField | null>(null);
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
@@ -154,6 +163,8 @@ export default function InlineEditLayer({
           onFontChange={onFontChange}
           onContentChange={onContentChange}
           onClose={handleClose}
+          textEffects={textEffects}
+          onTextEffectsChange={onTextEffectsChange}
         />
       )}
     </>

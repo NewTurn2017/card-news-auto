@@ -2,6 +2,24 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+const textFieldEffectsValidator = v.object({
+  fontWeight: v.optional(v.number()),
+  italic: v.optional(v.boolean()),
+  underline: v.optional(v.boolean()),
+  strikethrough: v.optional(v.boolean()),
+  uppercase: v.optional(v.boolean()),
+  opacity: v.optional(v.number()),
+  shadowColor: v.optional(v.string()),
+  shadowBlur: v.optional(v.number()),
+  shadowX: v.optional(v.number()),
+  shadowY: v.optional(v.number()),
+  bgColor: v.optional(v.string()),
+  bgPadding: v.optional(v.number()),
+  bgRadius: v.optional(v.number()),
+  strokeColor: v.optional(v.string()),
+  strokeWidth: v.optional(v.number()),
+});
+
 const styleValidator = v.object({
   bgType: v.union(v.literal("solid"), v.literal("gradient")),
   bgColor: v.string(),
@@ -25,6 +43,12 @@ const styleValidator = v.object({
   subtitleLetterSpacing: v.optional(v.number()),
   bodyLineHeight: v.optional(v.number()),
   bodyLetterSpacing: v.optional(v.number()),
+  textEffects: v.optional(v.object({
+    category: v.optional(textFieldEffectsValidator),
+    title: v.optional(textFieldEffectsValidator),
+    subtitle: v.optional(textFieldEffectsValidator),
+    body: v.optional(textFieldEffectsValidator),
+  })),
 });
 
 const contentValidator = v.object({

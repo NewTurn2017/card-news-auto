@@ -344,6 +344,22 @@ export default function EditPage() {
               }}
               onContentChange={handleContentChange}
               clickInfo={slideClickInfo}
+              textEffects={(localStyle ?? (convexSlide.style as SlideStyle | undefined))?.textEffects}
+              onTextEffectsChange={(field, effects) => {
+                const current: SlideStyle = localStyle ?? (convexSlide.style as SlideStyle | undefined) ?? { bgType: "solid" as const, bgColor: "#0f0f0f", textColor: "#ffffff", accentColor: "#4ae3c0", fontFamily: "'Noto Sans KR', sans-serif" };
+                const newStyle: SlideStyle = {
+                  ...current,
+                  textEffects: {
+                    ...current.textEffects,
+                    [field]: { ...current.textEffects?.[field as keyof typeof current.textEffects], ...effects },
+                  },
+                };
+                setLocalStyle(newStyle);
+                if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
+                styleTimerRef.current = setTimeout(() => {
+                  updateStyleMutation({ slideId: convexSlide._id as Id<"slides">, style: newStyle });
+                }, 300);
+              }}
             />
           </div>
         </div>

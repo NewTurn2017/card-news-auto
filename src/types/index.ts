@@ -93,6 +93,30 @@ export interface SlideStyle {
   subtitleLetterSpacing?: number;
   bodyLineHeight?: number;
   bodyLetterSpacing?: number;
+  textEffects?: {
+    category?: TextFieldEffects;
+    title?: TextFieldEffects;
+    subtitle?: TextFieldEffects;
+    body?: TextFieldEffects;
+  };
+}
+
+export interface TextFieldEffects {
+  fontWeight?: number;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  uppercase?: boolean;
+  opacity?: number;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowX?: number;
+  shadowY?: number;
+  bgColor?: string;
+  bgPadding?: number;
+  bgRadius?: number;
+  strokeColor?: string;
+  strokeWidth?: number;
 }
 
 export interface GenerateRequest {
