@@ -39,6 +39,9 @@ yarn-error.log*
 # omc state
 .omc/
 
+# bkit state
+.bkit/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

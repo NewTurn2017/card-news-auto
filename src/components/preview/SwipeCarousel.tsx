@@ -318,7 +318,7 @@ export default function SwipeCarousel({
               }}
               slide={slide}
               scale={scale}
-              resolvedOverlayUrls={i === currentIndex ? resolvedOverlayUrls : undefined}
+              resolvedOverlayUrls={resolvedOverlayUrls}
               selectedOverlayIndex={i === currentIndex ? selectedOverlayIndex : undefined}
               isInteractive={i === currentIndex ? isInteractive : false}
               onOverlaySelect={i === currentIndex ? onOverlaySelect : undefined}
