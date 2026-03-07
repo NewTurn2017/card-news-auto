@@ -20,6 +20,9 @@ import LayoutSelector from "./LayoutSelector";
 import ImageControls from "./ImageControls";
 import SlideActions from "./SlideActions";
 import ImproveModal from "./ImproveModal";
+import FieldAdder from "./FieldAdder";
+import MyAssetsPanel from "./MyAssetsPanel";
+import OverlayControls from "./OverlayControls";
 import type { SlideContent, SlideImage, SlideStyle } from "@/types";
 import { colorPresets } from "@/data/presets";
 
@@ -32,14 +35,23 @@ interface EditorPanelProps {
   localContent: SlideContent;
   onContentChange: (content: SlideContent) => void;
   onLocalStyleChange?: (style: SlideStyle | null) => void;
+  overlays?: Array<{ assetId: string; x: number; y: number; width: number; opacity: number }>;
+  onAddOverlay?: (assetId: Id<"userAssets">) => void;
+  onUpdateOverlay?: (index: number, partial: Partial<{ x: number; y: number; width: number; opacity: number }>) => void;
+  onRemoveOverlay?: (index: number) => void;
+  selectedOverlayIndex?: number | null;
+  onSelectOverlay?: (index: number) => void;
+  localImage?: SlideImage;
+  onImageChange?: (image: SlideImage | undefined) => void;
 }
 
-const ALL_SECTION_IDS = ["style", "layout", "image"];
+const ALL_SECTION_IDS = ["style", "layout", "image", "assets"];
 
 const SECTIONS = [
   { id: "style", label: "스타일", icon: Palette },
   { id: "layout", label: "레이아웃", icon: LayoutGrid },
   { id: "image", label: "이미지", icon: ImageIcon },
+  { id: "assets", label: "내 에셋", icon: FolderOpen },
 ] as const;
 
 const DEFAULT_STYLE: SlideStyle = {
@@ -95,7 +107,16 @@ export default function EditorPanel({
   currentSlideIndex,
   onSlideChange,
   localContent,
+  onContentChange,
   onLocalStyleChange,
+  overlays,
+  onAddOverlay,
+  onUpdateOverlay,
+  onRemoveOverlay,
+  selectedOverlayIndex,
+  onSelectOverlay,
+  localImage,
+  onImageChange,
 }: EditorPanelProps) {
   // All sections open by default
   const [openSections, setOpenSections] = useState<Set<string>>(
@@ -365,6 +386,19 @@ export default function EditorPanel({
 
       {/* Scrollable Accordion Body */}
       <div className="flex-1 space-y-2 overflow-y-auto p-4">
+        {/* Field Adder */}
+        <div className="rounded-xl border border-border bg-surface px-4 py-3">
+          <label className="mb-2 block text-[11px] font-medium uppercase tracking-wide text-muted">
+            콘텐츠 필드
+          </label>
+          <FieldAdder
+            content={localContent}
+            onAddField={(field, defaultValue) => {
+              onContentChange({ ...localContent, [field]: defaultValue });
+            }}
+          />
+        </div>
+
         {SECTIONS.map((section) => (
           <AccordionCard
             key={section.id}
@@ -491,18 +525,34 @@ export default function EditorPanel({
             {section.id === "image" && (
               <ImageControls
                 image={
-                  slide.image
-                    ? {
-                        url: slide.image.externalUrl ?? "",
-                        opacity: slide.image.opacity,
-                        position: slide.image.position,
-                        size: slide.image.size,
-                        fit: slide.image.fit,
-                      }
-                    : undefined
+                  localImage !== undefined
+                    ? localImage
+                    : slide.image
+                      ? {
+                          url: slide.image.externalUrl ?? "",
+                          opacity: slide.image.opacity,
+                          position: slide.image.position,
+                          size: slide.image.size,
+                          fit: slide.image.fit,
+                        }
+                      : undefined
                 }
-                onChange={handleImageChange}
+                onChange={onImageChange ?? handleImageChange}
               />
+            )}
+            {section.id === "assets" && (
+              <div>
+                <MyAssetsPanel onAddOverlay={onAddOverlay} />
+                {overlays && overlays.length > 0 && onUpdateOverlay && onRemoveOverlay && (
+                  <OverlayControls
+                    overlays={overlays}
+                    selectedIndex={selectedOverlayIndex}
+                    onSelect={onSelectOverlay}
+                    onUpdate={onUpdateOverlay}
+                    onRemove={onRemoveOverlay}
+                  />
+                )}
+              </div>
             )}
           </AccordionCard>
         ))}

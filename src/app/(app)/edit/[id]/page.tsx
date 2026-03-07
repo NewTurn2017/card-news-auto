@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
@@ -12,8 +12,10 @@ import InstagramFrame from "@/components/preview/InstagramFrame";
 import SwipeCarousel from "@/components/preview/SwipeCarousel";
 import ExportButton from "@/components/export/ExportButton";
 import InlineEditLayer, { type SlideClickInfo } from "@/components/preview/InlineEditLayer";
-import type { CardSlide, SlideContent, SlideStyle } from "@/types";
+import type { CardSlide, SlideContent, SlideImage, SlideStyle } from "@/types";
 import { getFontById } from "@/data/fonts";
+
+type Overlay = { assetId: string; x: number; y: number; width: number; opacity: number };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapConvexSlide(slide: any): CardSlide {
@@ -35,6 +37,7 @@ function mapConvexSlide(slide: any): CardSlide {
           fit: slide.image.fit,
         }
       : undefined,
+    overlays: slide.overlays,
     htmlContent: "",
   };
 }
@@ -47,20 +50,40 @@ export default function EditPage() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
   const [slideClickInfo, setSlideClickInfo] = useState<SlideClickInfo | null>(null);
+  const [selectedOverlayIndex, setSelectedOverlayIndex] = useState<number | null>(null);
 
   // Optimistic UI state
   const [localContent, setLocalContent] = useState<SlideContent | null>(null);
   const [localStyle, setLocalStyle] = useState<SlideStyle | null>(null);
+  const [localOverlays, setLocalOverlays] = useState<Overlay[] | null>(null);
+  const [localImage, setLocalImage] = useState<SlideImage | null | undefined>(undefined);
   const localSlideIdRef = useRef<string | null>(null); // tracks which slide localContent belongs to
   const pendingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const overlayPendingRef = useRef(false);
+  const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const imagePendingRef = useRef(false);
+  const imageTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const projectId = params.id as Id<"projects">;
   const project = useQuery(api.projects.getProject, { projectId });
   const slides = useQuery(api.slides.getSlides, { projectId });
+  const assets = useQuery(api.userAssets.listAssets) ?? [];
+  const resolvedOverlayUrls = useMemo(() => {
+    const map: Record<string, { url: string; name: string }> = {};
+    for (const asset of assets) {
+      if (asset.url) {
+        map[asset._id] = { url: asset.url, name: asset.name };
+      }
+    }
+    return map;
+  }, [assets]);
   const updateSlideMutation = useMutation(api.slides.updateSlide);
   const updateStyleMutation = useMutation(api.slides.updateSlideStyle);
+  const updateImageMutation = useMutation(api.slides.updateSlideImage);
   const createSlideMutation = useMutation(api.slides.createSlide);
+  const resetFieldMutation = useMutation(api.slides.resetFieldToOriginal);
+  const updateOverlaysMutation = useMutation(api.slides.updateSlideOverlays);
   const styleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const safeIndex = slides
@@ -77,10 +100,38 @@ export default function EditPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convexSlide?.content]);
 
+  // Sync localOverlays from server when no pending edits
+  useEffect(() => {
+    if (!overlayPendingRef.current && convexSlide) {
+      setLocalOverlays((convexSlide.overlays as Overlay[] | undefined) ?? []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convexSlide?.overlays]);
+
+  // Sync localImage from server when no pending edits
+  useEffect(() => {
+    if (!imagePendingRef.current && convexSlide) {
+      setLocalImage(
+        convexSlide.image
+          ? {
+              url: convexSlide.image.externalUrl ?? "",
+              opacity: convexSlide.image.opacity,
+              position: convexSlide.image.position,
+              size: convexSlide.image.size,
+              fit: convexSlide.image.fit,
+            }
+          : null
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convexSlide?.image]);
+
   // Flush on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+      if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
     };
   }, []);
 
@@ -88,9 +139,26 @@ export default function EditPage() {
   useEffect(() => {
     if (convexSlide) {
       pendingRef.current = false;
+      overlayPendingRef.current = false;
+      imagePendingRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+      if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
       setLocalContent(convexSlide.content ?? { title: "" });
       setLocalStyle(null);
+      setLocalOverlays((convexSlide.overlays as Overlay[] | undefined) ?? []);
+      setLocalImage(
+        convexSlide.image
+          ? {
+              url: convexSlide.image.externalUrl ?? "",
+              opacity: convexSlide.image.opacity,
+              position: convexSlide.image.position,
+              size: convexSlide.image.size,
+              fit: convexSlide.image.fit,
+            }
+          : null
+      );
+      setSelectedOverlayIndex(null);
       localSlideIdRef.current = convexSlide._id;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -198,6 +266,8 @@ export default function EditPage() {
         ...mapped,
         content: (isLocalContentFresh ? localContent : null) ?? s.content ?? { title: "" },
         style: localStyle ?? s.style,
+        overlays: localOverlays ?? mapped.overlays,
+        image: localImage !== undefined ? (localImage ?? undefined) : mapped.image,
       };
     }
     return mapped;
@@ -286,6 +356,58 @@ export default function EditPage() {
             localContent={localContent ?? convexSlide.content ?? { title: "" }}
             onContentChange={handleContentChange}
             onLocalStyleChange={setLocalStyle}
+            overlays={localOverlays ?? (convexSlide.overlays as Overlay[] | undefined) ?? []}
+            selectedOverlayIndex={selectedOverlayIndex}
+            onSelectOverlay={(idx) => setSelectedOverlayIndex(idx)}
+            onAddOverlay={(assetId) => {
+              const current = localOverlays ?? (convexSlide.overlays as Overlay[] | undefined) ?? [];
+              if (current.length >= 5) return;
+              const newOverlays = [...current, { assetId: assetId as string, x: 85, y: 90, width: 15, opacity: 80 }];
+              setLocalOverlays(newOverlays);
+              updateOverlaysMutation({ slideId: convexSlide._id as Id<"slides">, overlays: newOverlays as Parameters<typeof updateOverlaysMutation>[0]["overlays"] });
+            }}
+            onUpdateOverlay={(index, partial) => {
+              setLocalOverlays(prev => {
+                const updated = [...(prev ?? (convexSlide.overlays as Overlay[] | undefined) ?? [])];
+                updated[index] = { ...updated[index], ...partial };
+
+                overlayPendingRef.current = true;
+                if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+                overlayTimerRef.current = setTimeout(() => {
+                  updateOverlaysMutation({ slideId: convexSlide._id as Id<"slides">, overlays: updated as Parameters<typeof updateOverlaysMutation>[0]["overlays"] });
+                  overlayPendingRef.current = false;
+                }, 300);
+
+                return updated;
+              });
+            }}
+            onRemoveOverlay={(index) => {
+              const current = [...(localOverlays ?? (convexSlide.overlays as Overlay[] | undefined) ?? [])];
+              current.splice(index, 1);
+              setLocalOverlays(current);
+              updateOverlaysMutation({ slideId: convexSlide._id as Id<"slides">, overlays: current as Parameters<typeof updateOverlaysMutation>[0]["overlays"] });
+            }}
+            localImage={localImage !== undefined ? (localImage ?? undefined) : undefined}
+            onImageChange={(image: SlideImage | undefined) => {
+              setLocalImage(image ?? null);
+              imagePendingRef.current = true;
+              if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
+              imageTimerRef.current = setTimeout(() => {
+                updateImageMutation({
+                  slideId: convexSlide._id as Id<"slides">,
+                  image: image
+                    ? {
+                        externalUrl: image.url,
+                        opacity: image.opacity,
+                        position: image.position,
+                        size: image.size,
+                        fit: image.fit,
+                      }
+                    : undefined,
+                });
+                imagePendingRef.current = false;
+              }, 300);
+            }}
           />
         </div>
 
@@ -314,7 +436,45 @@ export default function EditPage() {
                   cardHeight={cardHeight}
                   scale={previewScale}
                   slideRefs={allSlideRefs}
-                  onSlideClick={(e) => setSlideClickInfo({ clientX: e.clientX, clientY: e.clientY, timestamp: Date.now() })}
+                  onSlideClick={(e) => {
+                    setSelectedOverlayIndex(null);
+                    setSlideClickInfo({ clientX: e.clientX, clientY: e.clientY, timestamp: Date.now() });
+                  }}
+                  resolvedOverlayUrls={resolvedOverlayUrls}
+                  selectedOverlayIndex={selectedOverlayIndex ?? undefined}
+                  isInteractive={true}
+                  onOverlaySelect={(idx) => setSelectedOverlayIndex(idx)}
+                  onOverlayMove={(idx, nx, ny) => {
+                    setLocalOverlays(prev => {
+                      const updated = [...(prev ?? (convexSlide.overlays as Overlay[] | undefined) ?? [])];
+                      updated[idx] = { ...updated[idx], x: nx, y: ny };
+
+                      overlayPendingRef.current = true;
+                      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+                      overlayTimerRef.current = setTimeout(() => {
+                        updateOverlaysMutation({ slideId: convexSlide._id as Id<"slides">, overlays: updated as Parameters<typeof updateOverlaysMutation>[0]["overlays"] });
+                        overlayPendingRef.current = false;
+                      }, 300);
+
+                      return updated;
+                    });
+                  }}
+                  onOverlayResize={(idx, w) => {
+                    setLocalOverlays(prev => {
+                      const updated = [...(prev ?? (convexSlide.overlays as Overlay[] | undefined) ?? [])];
+                      updated[idx] = { ...updated[idx], width: w };
+
+                      overlayPendingRef.current = true;
+                      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+                      overlayTimerRef.current = setTimeout(() => {
+                        updateOverlaysMutation({ slideId: convexSlide._id as Id<"slides">, overlays: updated as Parameters<typeof updateOverlaysMutation>[0]["overlays"] });
+                        overlayPendingRef.current = false;
+                      }, 300);
+
+                      return updated;
+                    });
+                  }}
+                  onOverlayDeselect={() => setSelectedOverlayIndex(null)}
                 />
               </InstagramFrame>
             </PhoneMockup>
@@ -344,6 +504,13 @@ export default function EditPage() {
               }}
               onContentChange={handleContentChange}
               clickInfo={slideClickInfo}
+              originalContent={convexSlide.originalContent as SlideContent | undefined}
+              onResetField={async (field) => {
+                await resetFieldMutation({
+                  slideId: convexSlide._id as Id<"slides">,
+                  field: field as "category" | "title" | "subtitle" | "body",
+                });
+              }}
               textEffects={(localStyle ?? (convexSlide.style as SlideStyle | undefined))?.textEffects}
               onTextEffectsChange={(field, effects) => {
                 const current: SlideStyle = localStyle ?? (convexSlide.style as SlideStyle | undefined) ?? { bgType: "solid" as const, bgColor: "#0f0f0f", textColor: "#ffffff", accentColor: "#4ae3c0", fontFamily: "'Noto Sans KR', sans-serif" };

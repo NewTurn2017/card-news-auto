@@ -24,6 +24,7 @@ import type * as slides from "../slides.js";
 import type * as sources from "../sources.js";
 import type * as storage from "../storage.js";
 import type * as stylePresets from "../stylePresets.js";
+import type * as userAssets from "../userAssets.js";
 import type * as userProfiles from "../userProfiles.js";
 
 import type {
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   sources: typeof sources;
   storage: typeof storage;
   stylePresets: typeof stylePresets;
+  userAssets: typeof userAssets;
   userProfiles: typeof userProfiles;
 }>;
 

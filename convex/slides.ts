@@ -59,6 +59,14 @@ const contentValidator = v.object({
   source: v.optional(v.string()),
 });
 
+const overlayValidator = v.object({
+  assetId: v.id("userAssets"),
+  x: v.number(),
+  y: v.number(),
+  width: v.number(),
+  opacity: v.number(),
+});
+
 const imageValidator = v.object({
   storageId: v.optional(v.id("_storage")),
   externalUrl: v.optional(v.string()),
@@ -69,6 +77,7 @@ const imageValidator = v.object({
     v.literal("cover"),
     v.literal("contain"),
     v.literal("fill"),
+    v.literal("free"),
   ),
 });
 
@@ -299,9 +308,62 @@ export const createSlideInternal = internalMutation({
     ),
     layoutId: v.string(),
     content: contentValidator,
+    originalContent: v.optional(contentValidator),
     style: styleValidator,
   },
   handler: async (ctx, args) => {
     return ctx.db.insert("slides", args);
+  },
+});
+
+// ─── Content Management ─────────────────────────────────────
+
+export const resetFieldToOriginal = mutation({
+  args: {
+    slideId: v.id("slides"),
+    field: v.union(
+      v.literal("category"),
+      v.literal("title"),
+      v.literal("subtitle"),
+      v.literal("body"),
+    ),
+  },
+  handler: async (ctx, { slideId, field }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const slide = await ctx.db.get(slideId);
+    if (!slide) throw new Error("Not found");
+
+    const project = await ctx.db.get(slide.projectId);
+    if (!project || project.userId !== userId) throw new Error("Not found");
+
+    if (!slide.originalContent) throw new Error("No original content");
+
+    const originalValue = slide.originalContent[field];
+    if (originalValue === undefined) throw new Error("No original value for field");
+
+    await ctx.db.patch(slideId, {
+      content: { ...slide.content, [field]: originalValue },
+    });
+  },
+});
+
+export const updateSlideOverlays = mutation({
+  args: {
+    slideId: v.id("slides"),
+    overlays: v.array(overlayValidator),
+  },
+  handler: async (ctx, { slideId, overlays }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const slide = await ctx.db.get(slideId);
+    if (!slide) throw new Error("Not found");
+
+    const project = await ctx.db.get(slide.projectId);
+    if (!project || project.userId !== userId) throw new Error("Not found");
+
+    await ctx.db.patch(slideId, { overlays });
   },
 });

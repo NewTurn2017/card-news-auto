@@ -219,17 +219,19 @@ export const generateCardNews = action({
     // Phase 2: 슬라이드 생성
     for (let i = 0; i < plan.slides.length; i++) {
       const slide = plan.slides[i];
+      const slideContent = {
+        category: slide.category,
+        title: slide.title,
+        subtitle: slide.subtitle,
+        body: slide.body,
+      };
       await ctx.runMutation(internal.slides.createSlideInternal, {
         projectId,
         order: i,
         type: slide.type,
         layoutId: i === 0 ? "center" : "center-left",
-        content: {
-          category: slide.category,
-          title: slide.title,
-          subtitle: slide.subtitle,
-          body: slide.body,
-        },
+        content: slideContent,
+        originalContent: slideContent,
         style: getDefaultStyle(),
       });
 

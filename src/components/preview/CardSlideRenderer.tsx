@@ -5,6 +5,7 @@ import type { CardSlide, TextFieldEffects } from '@/types'
 import { getPresetById } from '@/data/presets'
 import { getFontById } from '@/data/fonts'
 import { sanitizeHtml } from '@/lib/sanitize'
+import DraggableOverlay from './DraggableOverlay'
 
 function buildTextEffectStyles(effects?: TextFieldEffects): React.CSSProperties {
   if (!effects) return {};
@@ -45,10 +46,17 @@ function buildTextEffectStyles(effects?: TextFieldEffects): React.CSSProperties 
 interface CardSlideRendererProps {
   slide: CardSlide
   scale?: number
+  resolvedOverlayUrls?: Record<string, { url: string; name: string }>
+  selectedOverlayIndex?: number
+  isInteractive?: boolean
+  onOverlaySelect?: (index: number) => void
+  onOverlayMove?: (index: number, x: number, y: number) => void
+  onOverlayResize?: (index: number, width: number) => void
+  onOverlayDeselect?: () => void
 }
 
 const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
-  ({ slide, scale }, ref) => {
+  ({ slide, scale, resolvedOverlayUrls, selectedOverlayIndex, isInteractive, onOverlaySelect, onOverlayMove, onOverlayResize, onOverlayDeselect }, ref) => {
     const preset = getPresetById(slide.colorPreset)
     const font = getFontById(slide.fontFamily ?? 'pretendard')
 
@@ -87,7 +95,11 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
     const imageStyle: React.CSSProperties | undefined = slide.image
       ? {
           backgroundImage: `url(${slide.image.url})`,
-          backgroundSize: slide.image.fit === 'fill' ? '100% 100%' : slide.image.fit,
+          backgroundSize: slide.image.fit === 'fill'
+            ? '100% 100%'
+            : slide.image.fit === 'free'
+              ? `${slide.image.size}%`
+              : slide.image.fit,
           backgroundPosition: `${slide.image.position.x}% ${slide.image.position.y}%`,
           backgroundRepeat: 'no-repeat',
         }
@@ -274,6 +286,32 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               )}
             </div>
           )}
+
+          {/* Overlays */}
+          {slide.overlays?.map((overlay, idx) => {
+            const resolved = resolvedOverlayUrls?.[overlay.assetId];
+            if (!resolved) {
+              // Fallback: render static img without drag (e.g. export mode without resolved URLs)
+              return null;
+            }
+            return (
+              <DraggableOverlay
+                key={`${overlay.assetId}-${idx}`}
+                url={resolved.url}
+                name={resolved.name}
+                x={overlay.x}
+                y={overlay.y}
+                width={overlay.width}
+                opacity={overlay.opacity}
+                isSelected={selectedOverlayIndex === idx}
+                isInteractive={isInteractive ?? false}
+                onSelect={() => onOverlaySelect?.(idx)}
+                onMove={(nx, ny) => onOverlayMove?.(idx, nx, ny)}
+                onResize={(w) => onOverlayResize?.(idx, w)}
+                onDeselect={() => onOverlayDeselect?.()}
+              />
+            );
+          })}
         </div>
       </div>
     )

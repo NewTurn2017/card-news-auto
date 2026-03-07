@@ -85,6 +85,30 @@ export default function ImageControls({ image, onChange }: ImageControlsProps) {
       {/* Image controls */}
       {image && (
         <div className="flex flex-col gap-3">
+          {/* Fit mode buttons */}
+          <div className="flex gap-1.5">
+            {(["cover", "contain", "fill", "free"] as const).map((fit) => (
+              <button
+                key={fit}
+                onClick={() => onChange({ ...image, fit })}
+                className={`flex-1 rounded border px-2 py-1 text-xs transition-colors ${
+                  image.fit === fit
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border text-muted hover:text-foreground"
+                }`}
+              >
+                {fit === "cover"
+                  ? "채우기"
+                  : fit === "contain"
+                    ? "맞추기"
+                    : fit === "fill"
+                      ? "늘리기"
+                      : "자유"}
+              </button>
+            ))}
+          </div>
+
+          {/* Opacity - always active */}
           <div>
             <div className="mb-1 flex justify-between text-xs text-muted">
               <span>투명도</span>
@@ -101,7 +125,9 @@ export default function ImageControls({ image, onChange }: ImageControlsProps) {
               className="w-full accent-accent"
             />
           </div>
-          <div>
+
+          {/* Position X - disabled in fill mode */}
+          <div className={image.fit === "fill" ? "opacity-30 pointer-events-none" : ""}>
             <div className="mb-1 flex justify-between text-xs text-muted">
               <span>가로 위치</span>
               <span>{image.position.x}%</span>
@@ -120,7 +146,9 @@ export default function ImageControls({ image, onChange }: ImageControlsProps) {
               className="w-full accent-accent"
             />
           </div>
-          <div>
+
+          {/* Position Y - disabled in fill mode */}
+          <div className={image.fit === "fill" ? "opacity-30 pointer-events-none" : ""}>
             <div className="mb-1 flex justify-between text-xs text-muted">
               <span>세로 위치</span>
               <span>{image.position.y}%</span>
@@ -139,36 +167,23 @@ export default function ImageControls({ image, onChange }: ImageControlsProps) {
               className="w-full accent-accent"
             />
           </div>
-          <div>
+
+          {/* Size - only active in free mode */}
+          <div className={image.fit !== "free" ? "opacity-30 pointer-events-none" : ""}>
             <div className="mb-1 flex justify-between text-xs text-muted">
               <span>크기</span>
               <span>{image.size}%</span>
             </div>
             <input
               type="range"
-              min={50}
-              max={200}
+              min={20}
+              max={300}
               value={image.size}
               onChange={(e) =>
                 onChange({ ...image, size: Number(e.target.value) })
               }
               className="w-full accent-accent"
             />
-          </div>
-          <div className="flex gap-2">
-            {(["cover", "contain", "fill"] as const).map((fit) => (
-              <button
-                key={fit}
-                onClick={() => onChange({ ...image, fit })}
-                className={`rounded border px-2 py-1 text-xs ${
-                  image.fit === fit
-                    ? "border-accent text-accent"
-                    : "border-border text-muted hover:text-foreground"
-                }`}
-              >
-                {fit === "cover" ? "채우기" : fit === "contain" ? "맞추기" : "늘리기"}
-              </button>
-            ))}
           </div>
         </div>
       )}

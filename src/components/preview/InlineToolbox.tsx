@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { X, GripHorizontal } from "lucide-react";
+import { X, GripHorizontal, RotateCcw } from "lucide-react";
 import { getFontByFamily } from "@/data/fonts";
 import FontSelector from "@/components/editor/FontSelector";
 import type { SlideStyle, SlideContent, TextFieldEffects } from "@/types";
@@ -25,6 +25,8 @@ interface InlineToolboxProps {
     body?: TextFieldEffects;
   };
   onTextEffectsChange: (field: EditableField, effects: Partial<TextFieldEffects>) => void;
+  originalContent?: SlideContent;
+  onResetField?: (field: EditableField) => void;
 }
 
 const FIELD_LABELS: Record<EditableField, string> = {
@@ -109,6 +111,8 @@ export default function InlineToolbox({
   onClose,
   textEffects,
   onTextEffectsChange,
+  originalContent,
+  onResetField,
 }: InlineToolboxProps) {
   const toolboxRef = useRef<HTMLDivElement>(null);
   const [toolboxHeight, setToolboxHeight] = useState(400);
@@ -254,13 +258,26 @@ export default function InlineToolbox({
       </div>
 
       {/* Text Input */}
-      <textarea
-        value={currentText}
-        onChange={(e) => handleTextChange(e.target.value)}
-        rows={2}
-        className="w-full resize-y rounded-lg border border-border bg-surface-hover px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20"
-        placeholder={`${FIELD_LABELS[field]}을 입력하세요`}
-      />
+      <div className="relative">
+        <textarea
+          value={currentText}
+          onChange={(e) => handleTextChange(e.target.value)}
+          rows={2}
+          className="w-full resize-y rounded-lg border border-border bg-surface-hover px-2.5 py-1.5 pr-8 text-xs text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20"
+          placeholder={`${FIELD_LABELS[field]}을 입력하세요`}
+        />
+        {originalContent && onResetField &&
+          originalContent[config.contentKey] !== undefined &&
+          originalContent[config.contentKey] !== content[config.contentKey] && (
+          <button
+            onClick={() => onResetField(field)}
+            className="absolute right-1.5 top-1.5 rounded-md p-1 text-muted transition-colors hover:bg-accent/10 hover:text-accent"
+            title="원본 복원"
+          >
+            <RotateCcw size={12} />
+          </button>
+        )}
+      </div>
 
       {/* Font Family */}
       <FontSelector

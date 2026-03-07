@@ -13,6 +13,14 @@ interface SwipeCarouselProps {
   scale: number;
   slideRefs: React.RefObject<(HTMLDivElement | null)[]>;
   onSlideClick?: (e: React.PointerEvent) => void;
+  // Overlay interaction props (passed through to CardSlideRenderer)
+  resolvedOverlayUrls?: Record<string, { url: string; name: string }>;
+  selectedOverlayIndex?: number;
+  isInteractive?: boolean;
+  onOverlaySelect?: (index: number) => void;
+  onOverlayMove?: (index: number, x: number, y: number) => void;
+  onOverlayResize?: (index: number, width: number) => void;
+  onOverlayDeselect?: () => void;
 }
 
 // Spring physics constants
@@ -30,6 +38,13 @@ export default function SwipeCarousel({
   scale,
   slideRefs,
   onSlideClick,
+  resolvedOverlayUrls,
+  selectedOverlayIndex,
+  isInteractive,
+  onOverlaySelect,
+  onOverlayMove,
+  onOverlayResize,
+  onOverlayDeselect,
 }: SwipeCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -290,6 +305,13 @@ export default function SwipeCarousel({
               }}
               slide={slide}
               scale={scale}
+              resolvedOverlayUrls={i === currentIndex ? resolvedOverlayUrls : undefined}
+              selectedOverlayIndex={i === currentIndex ? selectedOverlayIndex : undefined}
+              isInteractive={i === currentIndex ? isInteractive : false}
+              onOverlaySelect={i === currentIndex ? onOverlaySelect : undefined}
+              onOverlayMove={i === currentIndex ? onOverlayMove : undefined}
+              onOverlayResize={i === currentIndex ? onOverlayResize : undefined}
+              onOverlayDeselect={i === currentIndex ? onOverlayDeselect : undefined}
             />
           </div>
         ))}

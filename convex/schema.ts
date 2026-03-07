@@ -166,13 +166,42 @@ export default defineSchema({
           v.literal("cover"),
           v.literal("contain"),
           v.literal("fill"),
+          v.literal("free"),
         ),
       }),
     ),
+    originalContent: v.optional(v.object({
+      category: v.optional(v.string()),
+      title: v.string(),
+      subtitle: v.optional(v.string()),
+      body: v.optional(v.string()),
+      source: v.optional(v.string()),
+    })),
+    overlays: v.optional(v.array(v.object({
+      assetId: v.id("userAssets"),
+      x: v.number(),
+      y: v.number(),
+      width: v.number(),
+      opacity: v.number(),
+    }))),
     htmlContent: v.optional(v.string()),
   })
     .index("by_projectId", ["projectId"])
     .index("by_projectId_order", ["projectId", "order"]),
+
+  // 사용자 에셋 (로고, 워터마크 등)
+  userAssets: defineTable({
+    userId: v.id("users"),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    type: v.union(
+      v.literal("logo"),
+      v.literal("watermark"),
+      v.literal("stamp"),
+      v.literal("image"),
+    ),
+    createdAt: v.number(),
+  }).index("by_userId", ["userId"]),
 
   // 생성 스타일 프리셋 (톤, 말투, 글자수 등)
   generationPresets: defineTable({

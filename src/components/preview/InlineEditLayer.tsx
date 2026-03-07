@@ -26,6 +26,8 @@ interface InlineEditLayerProps {
     body?: TextFieldEffects;
   };
   onTextEffectsChange: (field: string, effects: Partial<TextFieldEffects>) => void;
+  originalContent?: SlideContent;
+  onResetField?: (field: string) => void;
 }
 
 interface HighlightRect {
@@ -46,6 +48,8 @@ export default function InlineEditLayer({
   clickInfo,
   textEffects,
   onTextEffectsChange,
+  originalContent,
+  onResetField,
 }: InlineEditLayerProps) {
   const [selectedField, setSelectedField] = useState<EditableField | null>(null);
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
@@ -165,6 +169,8 @@ export default function InlineEditLayer({
           onClose={handleClose}
           textEffects={textEffects}
           onTextEffectsChange={onTextEffectsChange}
+          originalContent={originalContent}
+          onResetField={onResetField}
         />
       )}
     </>

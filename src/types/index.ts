@@ -19,6 +19,13 @@ export interface CardSlide {
   style?: SlideStyle;
   content: SlideContent;
   image?: SlideImage;
+  overlays?: Array<{
+    assetId: string;
+    x: number;
+    y: number;
+    width: number;
+    opacity: number;
+  }>;
   htmlContent: string;
 }
 
@@ -35,7 +42,7 @@ export interface SlideImage {
   opacity: number;
   position: { x: number; y: number };
   size: number;
-  fit: "cover" | "contain" | "fill";
+  fit: "cover" | "contain" | "fill" | "free";
   attribution?: {
     name: string;
     profileUrl: string;
