@@ -33,16 +33,14 @@ export function AIChatDecisionDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
-
-      <Card className="relative z-10 w-full max-w-lg rounded-3xl border-border/80 shadow-2xl">
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 md:justify-end">
+      <Card className="pointer-events-auto w-full max-w-sm rounded-3xl border-border/80 shadow-2xl">
         <CardHeader className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <CardTitle>이 변경을 적용할까요?</CardTitle>
               <CardDescription className="mt-1 text-xs leading-5">
-                미리보기는 이미 반영되어 있습니다. 적용하면 실제 편집 데이터에 저장됩니다.
+                미리보기는 이미 반영되어 있습니다. 화면을 보면서 확인한 뒤 적용해 주세요.
               </CardDescription>
             </div>
             <Badge variant="secondary">{model.scopeLabel}</Badge>
@@ -55,7 +53,7 @@ export function AIChatDecisionDialog({
           </div>
 
           <div className="space-y-2">
-            {model.operations.slice(0, 4).map((operation) => (
+            {model.operations.slice(0, 2).map((operation) => (
               <div
                 key={operation.key}
                 className="rounded-2xl border border-border bg-background px-4 py-3"
@@ -64,9 +62,9 @@ export function AIChatDecisionDialog({
                 <p className="mt-1 text-xs leading-5 text-muted">{operation.target}</p>
               </div>
             ))}
-            {model.operations.length > 4 && (
+            {model.operations.length > 2 && (
               <p className="text-xs text-muted">
-                외 {model.operations.length - 4}개의 변경안이 더 있습니다.
+                외 {model.operations.length - 2}개의 변경안이 더 있습니다.
               </p>
             )}
           </div>
