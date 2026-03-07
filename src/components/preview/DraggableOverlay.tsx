@@ -131,6 +131,7 @@ export default function DraggableOverlay({
         width: `${width}%`,
         opacity: opacity / 100,
         transform: "translate(-50%, -50%)",
+        touchAction: isInteractive ? "none" : "auto",
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

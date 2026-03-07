@@ -253,6 +253,7 @@ export default function InlineToolbox({
       {/* Header — drag handle */}
       <div
         className="flex cursor-grab items-center justify-between active:cursor-grabbing"
+        style={{ touchAction: "none" }}
         onPointerDown={handleDragStart}
       >
         <div className="flex items-center gap-1.5">

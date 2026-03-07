@@ -41,6 +41,7 @@ export default function DraggableTextField({
     (e: React.PointerEvent) => {
       if (!isInteractive) return;
       e.stopPropagation();
+      e.preventDefault();
 
       isDragging.current = true;
       hasDragged.current = false;
@@ -90,7 +91,7 @@ export default function DraggableTextField({
   return (
     <div
       className={`relative ${isInteractive ? "cursor-move" : ""}`}
-      style={{ width: "fit-content", ...(hasOffset ? { transform: `translate(${offsetX}px, ${offsetY}px)` } : {}) }}
+      style={{ width: "fit-content", touchAction: isInteractive ? "none" : "auto", ...(hasOffset ? { transform: `translate(${offsetX}px, ${offsetY}px)` } : {}) }}
       data-field={field}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
