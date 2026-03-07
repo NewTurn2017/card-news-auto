@@ -183,8 +183,9 @@ export default function InlineToolbox({
     e.preventDefault();
     isDragging.current = true;
     // Use current rendered position as the starting point
-    const currentTop = pos?.top ?? clampPos(anchorTop, anchorLeft, toolboxHeight).top;
-    const currentLeft = pos?.left ?? clampPos(anchorTop, anchorLeft, toolboxHeight).left;
+    const shiftedTop = anchorTop - Math.round(toolboxHeight / 3);
+    const currentTop = pos?.top ?? clampPos(shiftedTop, anchorLeft, toolboxHeight).top;
+    const currentLeft = pos?.left ?? clampPos(shiftedTop, anchorLeft, toolboxHeight).left;
     dragStart.current = {
       x: e.clientX,
       y: e.clientY,
@@ -204,7 +205,9 @@ export default function InlineToolbox({
   }, [handleDragMove, handleDragEnd]);
 
   // Compute final position: dragged position or clamped anchor
-  const finalPos = pos ?? clampPos(anchorTop, anchorLeft, toolboxHeight);
+  // Shift up by 1/3 of toolbox height so it's better centered on the selected element
+  const adjustedTop = anchorTop - Math.round(toolboxHeight / 3);
+  const finalPos = pos ?? clampPos(adjustedTop, anchorLeft, toolboxHeight);
 
   const currentSize = (style[config.sizeKey] as number | undefined) ?? config.defaultSize;
   const currentLineHeight =
