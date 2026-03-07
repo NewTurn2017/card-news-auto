@@ -1,6 +1,39 @@
-import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Id } from "./_generated/dataModel";
+
+async function buildDuplicateProjectTitle(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  sourceTitle: string,
+): Promise<string> {
+  const existingProjects = await ctx.db
+    .query("projects")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+
+  const existingTitles = new Set(existingProjects.map((project) => project.title));
+  const baseTitle = sourceTitle.replace(/ 복사본(?: \d+)?$/, "");
+  const duplicateBaseTitle = `${baseTitle} 복사본`;
+
+  if (!existingTitles.has(duplicateBaseTitle)) {
+    return duplicateBaseTitle;
+  }
+
+  let copyIndex = 2;
+  while (existingTitles.has(`${duplicateBaseTitle} ${copyIndex}`)) {
+    copyIndex += 1;
+  }
+
+  return `${duplicateBaseTitle} ${copyIndex}`;
+}
 
 // ─── Queries ────────────────────────────────────────────────
 
@@ -128,6 +161,63 @@ export const deleteProject = mutation({
     }
 
     await ctx.db.delete(projectId);
+  },
+});
+
+export const duplicateProject = mutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const project = await ctx.db.get(projectId);
+    if (!project || project.userId !== userId) throw new Error("Not found");
+
+    const slides = await ctx.db
+      .query("slides")
+      .withIndex("by_projectId_order", (q) => q.eq("projectId", projectId))
+      .collect();
+
+    const sources = await ctx.db
+      .query("sources")
+      .withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+      .collect();
+
+    const now = Date.now();
+    const duplicatedProjectId = await ctx.db.insert("projects", {
+      userId,
+      title: await buildDuplicateProjectTitle(ctx, userId, project.title),
+      status: project.status === "completed" ? "completed" : "draft",
+      sourceType: project.sourceType,
+      sourceInput: project.sourceInput,
+      sourceContent: project.sourceContent,
+      generationProgress: project.status === "completed" ? project.generationProgress : 0,
+      slideCount: slides.length,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    for (const slide of slides) {
+      const { _id, _creationTime, ...slideData } = slide;
+      void _id;
+      void _creationTime;
+      await ctx.db.insert("slides", {
+        ...slideData,
+        projectId: duplicatedProjectId,
+      });
+    }
+
+    for (const source of sources) {
+      const { _id, _creationTime, ...sourceData } = source;
+      void _id;
+      void _creationTime;
+      await ctx.db.insert("sources", {
+        ...sourceData,
+        projectId: duplicatedProjectId,
+      });
+    }
+
+    return duplicatedProjectId;
   },
 });
 
