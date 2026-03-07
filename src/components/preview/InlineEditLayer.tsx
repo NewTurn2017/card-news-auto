@@ -102,9 +102,10 @@ export default function InlineEditLayer({
     updateHighlight();
   }, [updateHighlight, currentContent, currentStyle]);
 
-  // Close on slide change
+  // Close on slide change — clear both field and rect immediately
   useEffect(() => {
     setSelectedField(null);
+    setHighlightRect(null);
   }, [slideRef]);
 
   // React to click events from SwipeCarousel

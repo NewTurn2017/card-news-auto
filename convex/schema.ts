@@ -154,6 +154,13 @@ export default defineSchema({
           strokeWidth: v.optional(v.number()),
         })),
       })),
+      freeformMode: v.optional(v.boolean()),
+      textPositions: v.optional(v.object({
+        category: v.optional(v.object({ x: v.number(), y: v.number() })),
+        title: v.optional(v.object({ x: v.number(), y: v.number() })),
+        subtitle: v.optional(v.object({ x: v.number(), y: v.number() })),
+        body: v.optional(v.object({ x: v.number(), y: v.number() })),
+      })),
     }),
     image: v.optional(
       v.object({
@@ -314,7 +321,34 @@ export default defineSchema({
           strokeWidth: v.optional(v.number()),
         })),
       })),
+      textPositions: v.optional(v.object({
+        category: v.optional(v.object({ x: v.number(), y: v.number() })),
+        title: v.optional(v.object({ x: v.number(), y: v.number() })),
+        subtitle: v.optional(v.object({ x: v.number(), y: v.number() })),
+        body: v.optional(v.object({ x: v.number(), y: v.number() })),
+      })),
     }),
+    layoutId: v.optional(v.string()),
+    overlays: v.optional(v.array(v.object({
+      assetId: v.string(),
+      x: v.number(),
+      y: v.number(),
+      width: v.number(),
+      opacity: v.number(),
+    }))),
+    image: v.optional(v.object({
+      storageId: v.optional(v.id("_storage")),
+      externalUrl: v.optional(v.string()),
+      opacity: v.number(),
+      position: v.object({ x: v.number(), y: v.number() }),
+      size: v.number(),
+      fit: v.union(
+        v.literal("cover"),
+        v.literal("contain"),
+        v.literal("fill"),
+        v.literal("free"),
+      ),
+    })),
     createdAt: v.number(),
   }).index("by_userId", ["userId"]),
 

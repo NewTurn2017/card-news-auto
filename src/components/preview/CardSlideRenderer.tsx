@@ -6,6 +6,7 @@ import { getPresetById } from '@/data/presets'
 import { getFontById } from '@/data/fonts'
 import { sanitizeHtml } from '@/lib/sanitize'
 import DraggableOverlay from './DraggableOverlay'
+import DraggableTextField from './DraggableTextField'
 
 function buildTextEffectStyles(effects?: TextFieldEffects): React.CSSProperties {
   if (!effects) return {};
@@ -53,10 +54,15 @@ interface CardSlideRendererProps {
   onOverlayMove?: (index: number, x: number, y: number) => void
   onOverlayResize?: (index: number, width: number) => void
   onOverlayDeselect?: () => void
+  selectedTextField?: string
+  onTextFieldSelect?: (field: string) => void
+  onTextFieldMove?: (field: string, x: number, y: number) => void
+  onTextFieldDeselect?: () => void
+  onTextFieldDoubleClick?: (clientX: number, clientY: number) => void
 }
 
 const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
-  ({ slide, scale, resolvedOverlayUrls, selectedOverlayIndex, isInteractive, onOverlaySelect, onOverlayMove, onOverlayResize, onOverlayDeselect }, ref) => {
+  ({ slide, scale, resolvedOverlayUrls, selectedOverlayIndex, isInteractive, onOverlaySelect, onOverlayMove, onOverlayResize, onOverlayDeselect, selectedTextField, onTextFieldSelect, onTextFieldMove, onTextFieldDeselect, onTextFieldDoubleClick }, ref) => {
     const preset = getPresetById(slide.colorPreset)
     const font = getFontById(slide.fontFamily ?? 'pretendard')
 
@@ -114,6 +120,35 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
     const layoutId = slide.layoutId?.replace('layout-', '') ?? 'center'
     const isSplitLayout = layoutId === 'split'
     const textEffects = slide.style?.textEffects
+    const tp = slide.style?.textPositions
+
+    // Helper to build a text style for category
+    const categoryStyle: React.CSSProperties = {
+      color: slide.style?.categoryColor ?? accentColor,
+      ...(slide.style?.categorySize ? { fontSize: `${slide.style.categorySize}px` } : {}),
+      ...buildTextEffectStyles(textEffects?.category),
+    }
+    const titleStyle: React.CSSProperties = {
+      ...(slide.style?.titleColor ? { color: slide.style.titleColor } : {}),
+      ...(slide.style?.titleSize ? { fontSize: `${slide.style.titleSize}px` } : {}),
+      ...(slide.style?.titleLineHeight != null ? { lineHeight: slide.style.titleLineHeight } : {}),
+      ...(slide.style?.titleLetterSpacing != null ? { letterSpacing: `${slide.style.titleLetterSpacing}px` } : {}),
+      ...buildTextEffectStyles(textEffects?.title),
+    }
+    const subtitleStyle: React.CSSProperties = {
+      color: slide.style?.subtitleColor ?? subtextColor,
+      ...(slide.style?.subtitleSize ? { fontSize: `${slide.style.subtitleSize}px` } : {}),
+      ...(slide.style?.subtitleLineHeight != null ? { lineHeight: slide.style.subtitleLineHeight } : {}),
+      ...(slide.style?.subtitleLetterSpacing != null ? { letterSpacing: `${slide.style.subtitleLetterSpacing}px` } : {}),
+      ...buildTextEffectStyles(textEffects?.subtitle),
+    }
+    const bodyStyle: React.CSSProperties = {
+      color: slide.style?.bodyColor ?? subtextColor,
+      ...(slide.style?.bodySize ? { fontSize: `${slide.style.bodySize}px` } : {}),
+      ...(slide.style?.bodyLineHeight != null ? { lineHeight: slide.style.bodyLineHeight } : {}),
+      ...(slide.style?.bodyLetterSpacing != null ? { letterSpacing: `${slide.style.bodyLetterSpacing}px` } : {}),
+      ...buildTextEffectStyles(textEffects?.body),
+    }
 
     return (
       <div style={containerStyle}>
@@ -156,133 +191,137 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
             /* Split layout: elements are direct flex children for space-between */
             <>
               {slide.content.category ? (
-                <p
-                  className='relative z-10 slide-category'
-                  data-field="category"
-                  style={{
-                    color: slide.style?.categoryColor ?? accentColor,
-                    ...(slide.style?.categorySize
-                      ? { fontSize: `${slide.style.categorySize}px` }
-                      : {}),
-                    ...buildTextEffectStyles(textEffects?.category),
-                  }}
+                <DraggableTextField
+                  field="category"
+                  offsetX={tp?.category?.x ?? 0} offsetY={tp?.category?.y ?? 0}
+                  scale={scale} isInteractive={isInteractive ?? false}
+                  isSelected={selectedTextField === 'category'}
+                  onSelect={() => onTextFieldSelect?.('category')}
+                  onMove={(ox, oy) => onTextFieldMove?.('category', ox, oy)}
+                  onDeselect={() => onTextFieldDeselect?.()}
+                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
                 >
-                  {slide.content.category}
-                </p>
+                  <p className='relative z-10 slide-category' style={categoryStyle}>
+                    {slide.content.category}
+                  </p>
+                </DraggableTextField>
               ) : <span className='relative z-10' />}
-              <div className='relative z-10 flex flex-col gap-4'>
+              <div className='relative z-10 flex flex-col gap-4 [align-items:inherit]'>
                 {slide.content.title && (
-                  <h2
-                    className='slide-title'
-                    data-field="title"
-                    style={{
-                      ...(slide.style?.titleColor ? { color: slide.style.titleColor } : {}),
-                      ...(slide.style?.titleSize ? { fontSize: `${slide.style.titleSize}px` } : {}),
-                      ...(slide.style?.titleLineHeight != null ? { lineHeight: slide.style.titleLineHeight } : {}),
-                      ...(slide.style?.titleLetterSpacing != null ? { letterSpacing: `${slide.style.titleLetterSpacing}px` } : {}),
-                      ...buildTextEffectStyles(textEffects?.title),
-                    }}
+                  <DraggableTextField
+                    field="title"
+                    offsetX={tp?.title?.x ?? 0} offsetY={tp?.title?.y ?? 0}
+                    scale={scale} isInteractive={isInteractive ?? false}
+                    isSelected={selectedTextField === 'title'}
+                    onSelect={() => onTextFieldSelect?.('title')}
+                    onMove={(ox, oy) => onTextFieldMove?.('title', ox, oy)}
+                    onDeselect={() => onTextFieldDeselect?.()}
+                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
                   >
-                    {slide.content.title}
-                  </h2>
+                    <h2 className='slide-title' style={titleStyle}>
+                      {slide.content.title}
+                    </h2>
+                  </DraggableTextField>
                 )}
                 {slide.content.body && (
-                  <p
-                    className='slide-body'
-                    data-field="body"
-                    style={{
-                      color: slide.style?.bodyColor ?? subtextColor,
-                      ...(slide.style?.bodySize ? { fontSize: `${slide.style.bodySize}px` } : {}),
-                      ...(slide.style?.bodyLineHeight != null ? { lineHeight: slide.style.bodyLineHeight } : {}),
-                      ...(slide.style?.bodyLetterSpacing != null ? { letterSpacing: `${slide.style.bodyLetterSpacing}px` } : {}),
-                      ...buildTextEffectStyles(textEffects?.body),
-                    }}
+                  <DraggableTextField
+                    field="body"
+                    offsetX={tp?.body?.x ?? 0} offsetY={tp?.body?.y ?? 0}
+                    scale={scale} isInteractive={isInteractive ?? false}
+                    isSelected={selectedTextField === 'body'}
+                    onSelect={() => onTextFieldSelect?.('body')}
+                    onMove={(ox, oy) => onTextFieldMove?.('body', ox, oy)}
+                    onDeselect={() => onTextFieldDeselect?.()}
+                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
                   >
-                    {slide.content.body}
-                  </p>
+                    <p className='slide-body' style={bodyStyle}>
+                      {slide.content.body}
+                    </p>
+                  </DraggableTextField>
                 )}
               </div>
               {slide.content.subtitle ? (
-                <p
-                  className='relative z-10 slide-subtitle'
-                  data-field="subtitle"
-                  style={{
-                    color: slide.style?.subtitleColor ?? subtextColor,
-                    ...(slide.style?.subtitleSize
-                      ? { fontSize: `${slide.style.subtitleSize}px` }
-                      : {}),
-                    ...(slide.style?.subtitleLineHeight != null ? { lineHeight: slide.style.subtitleLineHeight } : {}),
-                    ...(slide.style?.subtitleLetterSpacing != null ? { letterSpacing: `${slide.style.subtitleLetterSpacing}px` } : {}),
-                    ...buildTextEffectStyles(textEffects?.subtitle),
-                  }}
+                <DraggableTextField
+                  field="subtitle"
+                  offsetX={tp?.subtitle?.x ?? 0} offsetY={tp?.subtitle?.y ?? 0}
+                  scale={scale} isInteractive={isInteractive ?? false}
+                  isSelected={selectedTextField === 'subtitle'}
+                  onSelect={() => onTextFieldSelect?.('subtitle')}
+                  onMove={(ox, oy) => onTextFieldMove?.('subtitle', ox, oy)}
+                  onDeselect={() => onTextFieldDeselect?.()}
+                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
                 >
-                  {slide.content.subtitle}
-                </p>
+                  <p className='relative z-10 slide-subtitle' style={subtitleStyle}>
+                    {slide.content.subtitle}
+                  </p>
+                </DraggableTextField>
               ) : <span className='relative z-10' />}
             </>
           ) : (
-            <div className='relative z-10 flex flex-col gap-4'>
+            <div className='relative z-10 flex flex-col gap-4 [align-items:inherit]'>
               {slide.content.category && (
-                <p
-                  className='slide-category'
-                  data-field="category"
-                  style={{
-                    color: slide.style?.categoryColor ?? accentColor,
-                    ...(slide.style?.categorySize
-                      ? { fontSize: `${slide.style.categorySize}px` }
-                      : {}),
-                    ...buildTextEffectStyles(textEffects?.category),
-                  }}
+                <DraggableTextField
+                  field="category"
+                  offsetX={tp?.category?.x ?? 0} offsetY={tp?.category?.y ?? 0}
+                  scale={scale} isInteractive={isInteractive ?? false}
+                  isSelected={selectedTextField === 'category'}
+                  onSelect={() => onTextFieldSelect?.('category')}
+                  onMove={(ox, oy) => onTextFieldMove?.('category', ox, oy)}
+                  onDeselect={() => onTextFieldDeselect?.()}
+                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
                 >
-                  {slide.content.category}
-                </p>
+                  <p className='slide-category' style={categoryStyle}>
+                    {slide.content.category}
+                  </p>
+                </DraggableTextField>
               )}
               {slide.content.title && (
-                <h2
-                  className='slide-title'
-                  data-field="title"
-                  style={{
-                    ...(slide.style?.titleColor ? { color: slide.style.titleColor } : {}),
-                    ...(slide.style?.titleSize ? { fontSize: `${slide.style.titleSize}px` } : {}),
-                    ...(slide.style?.titleLineHeight != null ? { lineHeight: slide.style.titleLineHeight } : {}),
-                    ...(slide.style?.titleLetterSpacing != null ? { letterSpacing: `${slide.style.titleLetterSpacing}px` } : {}),
-                    ...buildTextEffectStyles(textEffects?.title),
-                  }}
+                <DraggableTextField
+                  field="title"
+                  offsetX={tp?.title?.x ?? 0} offsetY={tp?.title?.y ?? 0}
+                  scale={scale} isInteractive={isInteractive ?? false}
+                  isSelected={selectedTextField === 'title'}
+                  onSelect={() => onTextFieldSelect?.('title')}
+                  onMove={(ox, oy) => onTextFieldMove?.('title', ox, oy)}
+                  onDeselect={() => onTextFieldDeselect?.()}
+                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
                 >
-                  {slide.content.title}
-                </h2>
+                  <h2 className='slide-title' style={titleStyle}>
+                    {slide.content.title}
+                  </h2>
+                </DraggableTextField>
               )}
               {slide.content.subtitle && (
-                <p
-                  className='slide-subtitle'
-                  data-field="subtitle"
-                  style={{
-                    color: slide.style?.subtitleColor ?? subtextColor,
-                    ...(slide.style?.subtitleSize
-                      ? { fontSize: `${slide.style.subtitleSize}px` }
-                      : {}),
-                    ...(slide.style?.subtitleLineHeight != null ? { lineHeight: slide.style.subtitleLineHeight } : {}),
-                    ...(slide.style?.subtitleLetterSpacing != null ? { letterSpacing: `${slide.style.subtitleLetterSpacing}px` } : {}),
-                    ...buildTextEffectStyles(textEffects?.subtitle),
-                  }}
+                <DraggableTextField
+                  field="subtitle"
+                  offsetX={tp?.subtitle?.x ?? 0} offsetY={tp?.subtitle?.y ?? 0}
+                  scale={scale} isInteractive={isInteractive ?? false}
+                  isSelected={selectedTextField === 'subtitle'}
+                  onSelect={() => onTextFieldSelect?.('subtitle')}
+                  onMove={(ox, oy) => onTextFieldMove?.('subtitle', ox, oy)}
+                  onDeselect={() => onTextFieldDeselect?.()}
+                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
                 >
-                  {slide.content.subtitle}
-                </p>
+                  <p className='slide-subtitle' style={subtitleStyle}>
+                    {slide.content.subtitle}
+                  </p>
+                </DraggableTextField>
               )}
               {slide.content.body && (
-                <p
-                  className='slide-body'
-                  data-field="body"
-                  style={{
-                    color: slide.style?.bodyColor ?? subtextColor,
-                    ...(slide.style?.bodySize ? { fontSize: `${slide.style.bodySize}px` } : {}),
-                    ...(slide.style?.bodyLineHeight != null ? { lineHeight: slide.style.bodyLineHeight } : {}),
-                    ...(slide.style?.bodyLetterSpacing != null ? { letterSpacing: `${slide.style.bodyLetterSpacing}px` } : {}),
-                    ...buildTextEffectStyles(textEffects?.body),
-                  }}
+                <DraggableTextField
+                  field="body"
+                  offsetX={tp?.body?.x ?? 0} offsetY={tp?.body?.y ?? 0}
+                  scale={scale} isInteractive={isInteractive ?? false}
+                  isSelected={selectedTextField === 'body'}
+                  onSelect={() => onTextFieldSelect?.('body')}
+                  onMove={(ox, oy) => onTextFieldMove?.('body', ox, oy)}
+                  onDeselect={() => onTextFieldDeselect?.()}
+                  onDoubleClick={(cx, cy) => onTextFieldDoubleClick?.(cx, cy)}
                 >
-                  {slide.content.body}
-                </p>
+                  <p className='slide-body' style={bodyStyle}>
+                    {slide.content.body}
+                  </p>
+                </DraggableTextField>
               )}
             </div>
           )}

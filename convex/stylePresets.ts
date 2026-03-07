@@ -2,6 +2,24 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+const textEffectValidator = v.optional(v.object({
+  fontWeight: v.optional(v.number()),
+  italic: v.optional(v.boolean()),
+  underline: v.optional(v.boolean()),
+  strikethrough: v.optional(v.boolean()),
+  uppercase: v.optional(v.boolean()),
+  opacity: v.optional(v.number()),
+  shadowColor: v.optional(v.string()),
+  shadowBlur: v.optional(v.number()),
+  shadowX: v.optional(v.number()),
+  shadowY: v.optional(v.number()),
+  bgColor: v.optional(v.string()),
+  bgPadding: v.optional(v.number()),
+  bgRadius: v.optional(v.number()),
+  strokeColor: v.optional(v.string()),
+  strokeWidth: v.optional(v.number()),
+}));
+
 const styleValidator = v.object({
   bgType: v.union(v.literal("solid"), v.literal("gradient")),
   bgColor: v.string(),
@@ -19,6 +37,24 @@ const styleValidator = v.object({
   titleColor: v.optional(v.string()),
   subtitleColor: v.optional(v.string()),
   bodyColor: v.optional(v.string()),
+  titleLineHeight: v.optional(v.number()),
+  titleLetterSpacing: v.optional(v.number()),
+  subtitleLineHeight: v.optional(v.number()),
+  subtitleLetterSpacing: v.optional(v.number()),
+  bodyLineHeight: v.optional(v.number()),
+  bodyLetterSpacing: v.optional(v.number()),
+  textEffects: v.optional(v.object({
+    category: textEffectValidator,
+    title: textEffectValidator,
+    subtitle: textEffectValidator,
+    body: textEffectValidator,
+  })),
+  textPositions: v.optional(v.object({
+    category: v.optional(v.object({ x: v.number(), y: v.number() })),
+    title: v.optional(v.object({ x: v.number(), y: v.number() })),
+    subtitle: v.optional(v.object({ x: v.number(), y: v.number() })),
+    body: v.optional(v.object({ x: v.number(), y: v.number() })),
+  })),
 });
 
 export const list = query({
@@ -34,12 +70,37 @@ export const list = query({
   },
 });
 
+const overlayValidator = v.object({
+  assetId: v.string(),
+  x: v.number(),
+  y: v.number(),
+  width: v.number(),
+  opacity: v.number(),
+});
+
+const imageValidator = v.optional(v.object({
+  storageId: v.optional(v.id("_storage")),
+  externalUrl: v.optional(v.string()),
+  opacity: v.number(),
+  position: v.object({ x: v.number(), y: v.number() }),
+  size: v.number(),
+  fit: v.union(
+    v.literal("cover"),
+    v.literal("contain"),
+    v.literal("fill"),
+    v.literal("free"),
+  ),
+}));
+
 export const save = mutation({
   args: {
     name: v.string(),
     style: styleValidator,
+    layoutId: v.optional(v.string()),
+    overlays: v.optional(v.array(overlayValidator)),
+    image: imageValidator,
   },
-  handler: async (ctx, { name, style }) => {
+  handler: async (ctx, { name, style, layoutId, overlays, image }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
@@ -51,7 +112,7 @@ export const save = mutation({
 
     const duplicate = existing.find((p) => p.name === name);
     if (duplicate) {
-      await ctx.db.patch(duplicate._id, { style });
+      await ctx.db.patch(duplicate._id, { style, layoutId, overlays, image });
       return duplicate._id;
     }
 
@@ -59,6 +120,9 @@ export const save = mutation({
       userId,
       name,
       style,
+      layoutId,
+      overlays,
+      image,
       createdAt: Date.now(),
     });
   },

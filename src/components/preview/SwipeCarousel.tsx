@@ -21,6 +21,12 @@ interface SwipeCarouselProps {
   onOverlayMove?: (index: number, x: number, y: number) => void;
   onOverlayResize?: (index: number, width: number) => void;
   onOverlayDeselect?: () => void;
+  onSwipeStart?: () => void;
+  selectedTextField?: string;
+  onTextFieldSelect?: (field: string) => void;
+  onTextFieldMove?: (field: string, x: number, y: number) => void;
+  onTextFieldDeselect?: () => void;
+  onTextFieldDoubleClick?: (clientX: number, clientY: number) => void;
 }
 
 // Spring physics constants
@@ -45,6 +51,12 @@ export default function SwipeCarousel({
   onOverlayMove,
   onOverlayResize,
   onOverlayDeselect,
+  onSwipeStart,
+  selectedTextField,
+  onTextFieldSelect,
+  onTextFieldMove,
+  onTextFieldDeselect,
+  onTextFieldDoubleClick,
 }: SwipeCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -191,6 +203,7 @@ export default function SwipeCarousel({
 
       if (!hasDragged.current && Math.abs(dx) > DRAG_THRESHOLD) {
         hasDragged.current = true;
+        onSwipeStart?.();
       }
 
       // Track velocity (exponential moving average)
@@ -219,7 +232,7 @@ export default function SwipeCarousel({
 
       offsetX.current = newOffset;
     },
-    [cardWidth, maxIndex]
+    [cardWidth, maxIndex, onSwipeStart]
   );
 
   const handlePointerUp = useCallback(
@@ -312,6 +325,11 @@ export default function SwipeCarousel({
               onOverlayMove={i === currentIndex ? onOverlayMove : undefined}
               onOverlayResize={i === currentIndex ? onOverlayResize : undefined}
               onOverlayDeselect={i === currentIndex ? onOverlayDeselect : undefined}
+              selectedTextField={i === currentIndex ? selectedTextField : undefined}
+              onTextFieldSelect={i === currentIndex ? onTextFieldSelect : undefined}
+              onTextFieldMove={i === currentIndex ? onTextFieldMove : undefined}
+              onTextFieldDeselect={i === currentIndex ? onTextFieldDeselect : undefined}
+              onTextFieldDoubleClick={i === currentIndex ? onTextFieldDoubleClick : undefined}
             />
           </div>
         ))}

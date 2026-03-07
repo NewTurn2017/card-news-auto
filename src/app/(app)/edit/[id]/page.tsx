@@ -51,6 +51,7 @@ export default function EditPage() {
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
   const [slideClickInfo, setSlideClickInfo] = useState<SlideClickInfo | null>(null);
   const [selectedOverlayIndex, setSelectedOverlayIndex] = useState<number | null>(null);
+  const [selectedTextField, setSelectedTextField] = useState<string | null>(null);
 
   // Optimistic UI state
   const [localContent, setLocalContent] = useState<SlideContent | null>(null);
@@ -84,6 +85,7 @@ export default function EditPage() {
   const createSlideMutation = useMutation(api.slides.createSlide);
   const resetFieldMutation = useMutation(api.slides.resetFieldToOriginal);
   const updateOverlaysMutation = useMutation(api.slides.updateSlideOverlays);
+  const applyOverlaysToAllMutation = useMutation(api.slides.applyOverlaysToAll);
   const styleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const safeIndex = slides
@@ -159,6 +161,8 @@ export default function EditPage() {
           : null
       );
       setSelectedOverlayIndex(null);
+      setSelectedTextField(null);
+      setSlideClickInfo(null);
       localSlideIdRef.current = convexSlide._id;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,6 +199,27 @@ export default function EditPage() {
       setCurrentSlideIndex(Math.max(0, Math.min(i, slides.length - 1)));
     },
     [slides]
+  );
+
+  const handleTextFieldMove = useCallback(
+    (field: string, x: number, y: number) => {
+      if (!convexSlide) return;
+      const currentStyle: SlideStyle = localStyle ?? (convexSlide.style as SlideStyle) ?? { bgType: "solid" as const, bgColor: "#0f0f0f", textColor: "#ffffff", accentColor: "#4ae3c0", fontFamily: "'Noto Sans KR', sans-serif" };
+      const newStyle: SlideStyle = {
+        ...currentStyle,
+        textPositions: {
+          ...currentStyle.textPositions,
+          [field]: { x, y },
+        },
+      };
+      setLocalStyle(newStyle);
+
+      if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
+      styleTimerRef.current = setTimeout(() => {
+        updateStyleMutation({ slideId: convexSlide._id as Id<"slides">, style: newStyle });
+      }, 300);
+    },
+    [convexSlide, localStyle, updateStyleMutation]
   );
 
   const handleAddSlide = useCallback(async () => {
@@ -387,6 +412,11 @@ export default function EditPage() {
               setLocalOverlays(current);
               updateOverlaysMutation({ slideId: convexSlide._id as Id<"slides">, overlays: current as Parameters<typeof updateOverlaysMutation>[0]["overlays"] });
             }}
+            onApplyOverlaysToAll={() => {
+              const current = localOverlays ?? (convexSlide.overlays as Overlay[] | undefined) ?? [];
+              if (current.length === 0) return;
+              applyOverlaysToAllMutation({ projectId, overlays: current as Parameters<typeof applyOverlaysToAllMutation>[0]["overlays"] });
+            }}
             localImage={localImage !== undefined ? (localImage ?? undefined) : undefined}
             onImageChange={(image: SlideImage | undefined) => {
               setLocalImage(image ?? null);
@@ -418,7 +448,7 @@ export default function EditPage() {
           }`}
         >
           <p className="mb-2 text-center text-[11px] text-muted">
-            콘텐츠 내용을 클릭해서 수정하세요
+            <span className="font-medium text-foreground/70">클릭</span> 선택 · <span className="font-medium text-foreground/70">드래그</span> 이동 · <span className="font-medium text-foreground/70">더블클릭</span> 편집
           </p>
           <div ref={previewContainerRef} className="relative">
             <PhoneMockup width={cardWidth}>
@@ -475,6 +505,21 @@ export default function EditPage() {
                     });
                   }}
                   onOverlayDeselect={() => setSelectedOverlayIndex(null)}
+                  onSwipeStart={() => {
+                    setSelectedOverlayIndex(null);
+                    setSelectedTextField(null);
+                    setSlideClickInfo(null);
+                  }}
+                  selectedTextField={selectedTextField ?? undefined}
+                  onTextFieldSelect={(f) => {
+                    setSelectedTextField(f);
+                    setSelectedOverlayIndex(null);
+                  }}
+                  onTextFieldMove={handleTextFieldMove}
+                  onTextFieldDeselect={() => setSelectedTextField(null)}
+                  onTextFieldDoubleClick={(cx, cy) => {
+                    setSlideClickInfo({ clientX: cx, clientY: cy, timestamp: Date.now() });
+                  }}
                 />
               </InstagramFrame>
             </PhoneMockup>

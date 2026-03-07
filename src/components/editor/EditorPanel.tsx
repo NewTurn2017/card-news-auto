@@ -39,6 +39,7 @@ interface EditorPanelProps {
   onAddOverlay?: (assetId: Id<"userAssets">) => void;
   onUpdateOverlay?: (index: number, partial: Partial<{ x: number; y: number; width: number; opacity: number }>) => void;
   onRemoveOverlay?: (index: number) => void;
+  onApplyOverlaysToAll?: () => void;
   selectedOverlayIndex?: number | null;
   onSelectOverlay?: (index: number) => void;
   localImage?: SlideImage;
@@ -113,6 +114,7 @@ export default function EditorPanel({
   onAddOverlay,
   onUpdateOverlay,
   onRemoveOverlay,
+  onApplyOverlaysToAll,
   selectedOverlayIndex,
   onSelectOverlay,
   localImage,
@@ -144,6 +146,7 @@ export default function EditorPanel({
   const createSlideMutation = useMutation(api.slides.createSlide);
   const updateLayoutMutation = useMutation(api.slides.updateSlideLayout);
   const applyStyleToAllMutation = useMutation(api.slides.applyStyleToAll);
+  const updateOverlaysMutation = useMutation(api.slides.updateSlideOverlays);
   const improveSlideAction = useAction(api.actions.generate.improveSlide);
 
   // Style presets
@@ -311,7 +314,13 @@ export default function EditorPanel({
   };
 
   const handleApplyToAll = async () => {
-    await applyStyleToAllMutation({ projectId, style: currentStyle });
+    await applyStyleToAllMutation({
+      projectId,
+      style: currentStyle,
+      layoutId: slide.layoutId,
+      overlays: overlays as Parameters<typeof applyStyleToAllMutation>[0]["overlays"],
+      image: slide.image as Parameters<typeof applyStyleToAllMutation>[0]["image"],
+    });
     showToast(`전체 ${slides.length}장에 스타일 적용 완료`);
   };
 
@@ -319,16 +328,32 @@ export default function EditorPanel({
     if (!presetName.trim()) return;
     const name = presetName.trim();
     const isOverwrite = stylePresets.some((p) => p.name === name);
-    await savePresetMutation({ name, style: currentStyle });
+    await savePresetMutation({
+      name,
+      style: currentStyle,
+      layoutId: slide.layoutId,
+      overlays: overlays as Parameters<typeof savePresetMutation>[0]["overlays"],
+      image: slide.image as Parameters<typeof savePresetMutation>[0]["image"],
+    });
     setPresetName("");
     setShowPresetSave(false);
     showToast(isOverwrite ? `"${name}" 프리셋 덮어쓰기 완료` : `"${name}" 프리셋 저장 완료`);
   };
 
-  const handleLoadPreset = (name: string, style: SlideStyle) => {
-    handleStyleChange(style);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleLoadPreset = async (preset: any) => {
+    handleStyleChange(preset.style);
+    if (preset.layoutId) {
+      await updateLayoutMutation({ slideId, layoutId: preset.layoutId });
+    }
+    if (preset.overlays) {
+      await updateOverlaysMutation({ slideId, overlays: preset.overlays });
+    }
+    if (preset.image !== undefined) {
+      await updateImageMutation({ slideId, image: preset.image ?? undefined });
+    }
     setShowPresetLoad(false);
-    showToast(`"${name}" 프리셋 적용 완료`);
+    showToast(`"${preset.name}" 프리셋 적용 완료`);
   };
 
   const handleDeletePreset = async (presetId: Id<"stylePresets">, name: string) => {
@@ -492,7 +517,7 @@ export default function EditorPanel({
                             className="flex items-center justify-between border-b border-border px-3 py-2 last:border-b-0 hover:bg-surface-hover"
                           >
                             <button
-                              onClick={() => handleLoadPreset(preset.name, preset.style as SlideStyle)}
+                              onClick={() => handleLoadPreset(preset)}
                               className="flex-1 text-left text-xs text-foreground"
                             >
                               <span className="font-medium">{preset.name}</span>
@@ -517,10 +542,29 @@ export default function EditorPanel({
               </div>
             )}
             {section.id === "layout" && (
-              <LayoutSelector
-                selected={slide.layoutId}
-                onChange={handleSetLayout}
-              />
+              <div>
+                <LayoutSelector
+                  selected={slide.layoutId}
+                  onChange={(layoutId) => {
+                    handleSetLayout(layoutId);
+                  }}
+                />
+                {/* Reset text positions button */}
+                {currentStyle.textPositions && (
+                  <button
+                    onClick={() => {
+                      const { textPositions, ...rest } = currentStyle;
+                      void textPositions;
+                      const newStyle: SlideStyle = { ...rest };
+                      onLocalStyleChange?.(newStyle);
+                      updateStyleMutation({ slideId, style: newStyle });
+                    }}
+                    className="mt-2 w-full rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:bg-surface-hover transition-colors"
+                  >
+                    텍스트 위치 초기화
+                  </button>
+                )}
+              </div>
             )}
             {section.id === "image" && (
               <ImageControls
@@ -550,6 +594,7 @@ export default function EditorPanel({
                     onSelect={onSelectOverlay}
                     onUpdate={onUpdateOverlay}
                     onRemove={onRemoveOverlay}
+                    onApplyToAll={onApplyOverlaysToAll}
                   />
                 )}
               </div>

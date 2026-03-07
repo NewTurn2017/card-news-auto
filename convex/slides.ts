@@ -49,6 +49,13 @@ const styleValidator = v.object({
     subtitle: v.optional(textFieldEffectsValidator),
     body: v.optional(textFieldEffectsValidator),
   })),
+  freeformMode: v.optional(v.boolean()),
+  textPositions: v.optional(v.object({
+    category: v.optional(v.object({ x: v.number(), y: v.number() })),
+    title: v.optional(v.object({ x: v.number(), y: v.number() })),
+    subtitle: v.optional(v.object({ x: v.number(), y: v.number() })),
+    body: v.optional(v.object({ x: v.number(), y: v.number() })),
+  })),
 });
 
 const contentValidator = v.object({
@@ -269,8 +276,11 @@ export const applyStyleToAll = mutation({
   args: {
     projectId: v.id("projects"),
     style: styleValidator,
+    layoutId: v.optional(v.string()),
+    overlays: v.optional(v.array(overlayValidator)),
+    image: v.optional(imageValidator),
   },
-  handler: async (ctx, { projectId, style }) => {
+  handler: async (ctx, { projectId, style, layoutId, overlays, image }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
@@ -283,7 +293,11 @@ export const applyStyleToAll = mutation({
       .collect();
 
     for (const slide of slides) {
-      await ctx.db.patch(slide._id, { style });
+      const patch: Record<string, unknown> = { style };
+      if (layoutId !== undefined) patch.layoutId = layoutId;
+      if (overlays !== undefined) patch.overlays = overlays;
+      if (image !== undefined) patch.image = image;
+      await ctx.db.patch(slide._id, patch);
     }
   },
 });
@@ -346,6 +360,29 @@ export const resetFieldToOriginal = mutation({
     await ctx.db.patch(slideId, {
       content: { ...slide.content, [field]: originalValue },
     });
+  },
+});
+
+export const applyOverlaysToAll = mutation({
+  args: {
+    projectId: v.id("projects"),
+    overlays: v.array(overlayValidator),
+  },
+  handler: async (ctx, { projectId, overlays }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const project = await ctx.db.get(projectId);
+    if (!project || project.userId !== userId) throw new Error("Not found");
+
+    const slides = await ctx.db
+      .query("slides")
+      .withIndex("by_projectId_order", (q) => q.eq("projectId", projectId))
+      .collect();
+
+    for (const slide of slides) {
+      await ctx.db.patch(slide._id, { overlays });
+    }
   },
 });
 

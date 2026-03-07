@@ -77,6 +77,18 @@ export interface ColorPreset {
   subtextColor?: string;
 }
 
+export interface TextPosition {
+  x: number;
+  y: number;
+}
+
+export interface TextPositions {
+  category?: TextPosition;
+  title?: TextPosition;
+  subtitle?: TextPosition;
+  body?: TextPosition;
+}
+
 export interface SlideStyle {
   bgType: "solid" | "gradient";
   bgColor: string;
@@ -106,6 +118,8 @@ export interface SlideStyle {
     subtitle?: TextFieldEffects;
     body?: TextFieldEffects;
   };
+  freeformMode?: boolean;
+  textPositions?: TextPositions;
 }
 
 export interface TextFieldEffects {
