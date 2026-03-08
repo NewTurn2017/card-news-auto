@@ -130,7 +130,7 @@ export default function DraggableOverlay({
   return (
     <div
       ref={overlayRef}
-      className={`absolute z-20 ${isInteractive ? "cursor-move" : "pointer-events-none"}`}
+      className={`absolute z-[5] ${isInteractive ? "cursor-move" : "pointer-events-none"}`}
       style={{
         left: `${x}%`,
         top: `${y}%`,

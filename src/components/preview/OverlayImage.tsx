@@ -29,7 +29,7 @@ export default function OverlayImage({
     <img
       src={asset.url}
       alt={asset.name}
-      className="pointer-events-none absolute z-20"
+      className="pointer-events-none absolute z-[5]"
       style={{
         left: `${x}%`,
         top: `${y}%`,

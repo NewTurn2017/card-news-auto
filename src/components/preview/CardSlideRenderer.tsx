@@ -289,7 +289,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
 
           {hasCustomHtml ? (
             <div
-              className='relative z-10 flex h-full w-full flex-col items-center justify-center'
+              className='relative z-20 flex h-full w-full flex-col items-center justify-center'
               dangerouslySetInnerHTML={{
                 __html: sanitizeHtml(slide.htmlContent),
               }}
@@ -310,12 +310,12 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                   onDragEnd={(field) => onTextFieldDragEnd?.(field)}
                   onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                 >
-                  <p className='relative z-10 slide-category' style={categoryStyle}>
+                  <p className='relative z-20 slide-category' style={categoryStyle}>
                     {slide.content.category}
                   </p>
                 </DraggableTextField>
-              ) : <span className='relative z-10' />}
-              <div className='relative z-10 flex flex-col gap-4 [align-items:inherit]'>
+              ) : <span className='relative z-20' />}
+              <div className='relative z-20 flex flex-col gap-4 [align-items:inherit]'>
                 {slide.content.title && (
                   <DraggableTextField
                     field="title"
@@ -366,14 +366,14 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
                   onDragEnd={(field) => onTextFieldDragEnd?.(field)}
                   onDoubleClick={(field) => onTextFieldDoubleClick?.(field)}
                 >
-                  <p className='relative z-10 slide-subtitle' style={subtitleStyle}>
+                  <p className='relative z-20 slide-subtitle' style={subtitleStyle}>
                     {slide.content.subtitle}
                   </p>
                 </DraggableTextField>
-              ) : <span className='relative z-10' />}
+              ) : <span className='relative z-20' />}
             </>
           ) : (
-            <div className='relative z-10 flex flex-col gap-4 [align-items:inherit]'>
+            <div className='relative z-20 flex flex-col gap-4 [align-items:inherit]'>
               {slide.content.category && (
                 <DraggableTextField
                   field="category"
