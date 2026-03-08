@@ -264,11 +264,11 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
           onPointerUp={handleCanvasPointerUp}
           onPointerCancel={handleCanvasPointerUp}
         >
-          {/* Image overlay */}
+          {/* Image overlay — explicit z-[1] keeps these below text (z-10) */}
           {slide.image && imageStyle && (
             <>
               <div
-                className='absolute inset-0'
+                className='absolute inset-0 z-[1]'
                 style={{
                   ...imageStyle,
                   opacity: slide.image.opacity / 100,
@@ -277,7 +277,7 @@ const CardSlideRenderer = forwardRef<HTMLDivElement, CardSlideRendererProps>(
               {/* Tint overlay for solid bg to control image visibility */}
               {bgType !== 'gradient' && (
                 <div
-                  className='absolute inset-0'
+                  className='absolute inset-0 z-[1]'
                   style={{
                     backgroundColor: slide.style?.bgColor ?? preset.bgColor ?? '#0f0f0f',
                     opacity: 1 - slide.image.opacity / 100,

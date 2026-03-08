@@ -103,7 +103,7 @@ export default function DraggableTextField({
 
   return (
     <div
-      className={`relative ${isInteractive ? "cursor-move" : ""}`}
+      className={`relative z-10 ${isInteractive ? "cursor-move" : ""}`}
       style={{
         width: widthMode === "full" ? "100%" : "fit-content",
         maxWidth: "100%",

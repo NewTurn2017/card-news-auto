@@ -38,6 +38,7 @@ body {
   position: relative;
   overflow: hidden;
   font-family: "Pretendard", sans-serif;
+  isolation: isolate;
 }
 
 .card-slide .slide-category {
