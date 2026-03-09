@@ -120,7 +120,7 @@ async function buildFontEmbedCSS(element: HTMLElement): Promise<string> {
 async function embedExternalImages(element: HTMLElement): Promise<() => void> {
   const restoreFns: (() => void)[] = [];
 
-  // Find all elements with background-image containing external URLs
+  // Find all elements with background-image containing external or blob URLs
   const allElements = element.querySelectorAll("*");
   const targets = [element, ...Array.from(allElements)] as HTMLElement[];
 
@@ -128,12 +128,15 @@ async function embedExternalImages(element: HTMLElement): Promise<() => void> {
     const bgImage = el.style.backgroundImage;
     if (!bgImage) continue;
 
-    const urlMatch = bgImage.match(/url\(["']?(https?:\/\/[^"')]+)["']?\)/);
+    // Match both http(s) and blob URLs
+    const urlMatch = bgImage.match(/url\(["']?((?:https?|blob):[^"')]+)["']?\)/);
     if (!urlMatch) continue;
 
-    const externalUrl = urlMatch[1];
+    const imageUrl = urlMatch[1];
+    // Skip if already a data URL
+    if (imageUrl.startsWith("data:")) continue;
     try {
-      const dataUrl = await fetchAsDataUrl(externalUrl);
+      const dataUrl = await fetchAsDataUrl(imageUrl);
       const original = el.style.backgroundImage;
       el.style.backgroundImage = `url(${dataUrl})`;
       restoreFns.push(() => {
@@ -144,10 +147,10 @@ async function embedExternalImages(element: HTMLElement): Promise<() => void> {
     }
   }
 
-  // Also handle <img> tags
+  // Also handle <img> tags (http(s) and blob URLs)
   const imgs = element.querySelectorAll("img");
   for (const img of Array.from(imgs)) {
-    if (!img.src || !img.src.startsWith("http")) continue;
+    if (!img.src || (!img.src.startsWith("http") && !img.src.startsWith("blob:"))) continue;
     try {
       const dataUrl = await fetchAsDataUrl(img.src);
       const original = img.src;
