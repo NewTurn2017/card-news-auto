@@ -193,7 +193,13 @@ async function toPngWithFont(element: HTMLElement): Promise<string> {
   const fontEmbedCSS = await buildFontEmbedCSS(element);
   const restore = await embedExternalImages(element);
   try {
-    return await toPng(element, { ...getBaseOptions(), fontEmbedCSS });
+    const options = getBaseOptions();
+    // Only pass fontEmbedCSS when non-empty; passing "" disables html-to-image's
+    // own font detection, causing fallback to system fonts with different metrics.
+    if (fontEmbedCSS) {
+      return await toPng(element, { ...options, fontEmbedCSS });
+    }
+    return await toPng(element, options);
   } finally {
     restore();
   }

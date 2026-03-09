@@ -230,6 +230,11 @@ export function getFontById(id: string): KoreanFont {
   return KOREAN_FONTS.find((f) => f.id === id) ?? KOREAN_FONTS[0];
 }
 
+function normalizeFontFamily(family: string): string {
+  return family.replace(/['"]/g, "").replace(/\s*,\s*/g, ", ").trim();
+}
+
 export function getFontByFamily(family: string): KoreanFont | undefined {
-  return KOREAN_FONTS.find((f) => f.family === family);
+  const target = normalizeFontFamily(family);
+  return KOREAN_FONTS.find((f) => normalizeFontFamily(f.family) === target);
 }
